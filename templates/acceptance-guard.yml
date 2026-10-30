@@ -1,0 +1,23 @@
+# Copy both of these into the application you deploy:
+#   ci/check_acceptance_guard.py  ->  ci/check_acceptance_guard.py
+#   this file                     ->  .github/workflows/acceptance-guard.yml
+# The agent does not edit those copies. This workflow is the merge verdict.
+name: Acceptance guard
+
+on:
+  pull_request:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch the pull request base
+        run: git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
+      - name: Behavior sentences and skipped tests
+        run: python3 ci/check_acceptance_guard.py --base "${{ github.event.pull_request.base.sha }}"
