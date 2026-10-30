@@ -3,13 +3,13 @@
   "hooks": {
     "preToolUse": [
       {
-        "command": ".cursor/hooks/protect-acceptance.py",
+        "command": ".cursor/hooks/protect-acceptance.js",
         "failClosed": true
       }
     ],
     "beforeShellExecution": [
       {
-        "command": ".cursor/hooks/protect-acceptance.py",
+        "command": ".cursor/hooks/protect-acceptance.js",
         "failClosed": true
       }
     ]

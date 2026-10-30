@@ -1,0 +1,83 @@
+name: Touchstone
+description: Check approved sentences against Cucumber and publish the trace on the pull request.
+author: wosslabs
+branding:
+  icon: check-square
+  color: blue
+inputs:
+  base:
+    description: Pull request base SHA. Defaults to github.event.pull_request.base.sha.
+    required: false
+    default: ""
+  comment:
+    description: Post or update the trace comment on the pull request.
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Fetch the base commit
+      if: inputs.base != '' || github.event.pull_request.base.sha != ''
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+      run: git fetch --no-tags origin "$BASE"
+    - name: Approved sentences did not shrink
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+      run: |
+        if [ -n "$BASE" ]; then
+          node "${{ github.action_path }}/ci/check-acceptance-guard.js" --base "$BASE"
+        else
+          node "${{ github.action_path }}/ci/check-acceptance-guard.js"
+        fi
+    - name: Sentences match Cucumber
+      id: trace
+      shell: bash
+      run: |
+        set +e
+        node "${{ github.action_path }}/ci/check-trace.js" | tee "$RUNNER_TEMP/touchstone-trace.txt"
+        echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+    - name: Publish the trace
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      env:
+        TRACE_FILE: ${{ runner.temp }}/touchstone-trace.txt
+      with:
+        script: |
+          const fs = require('fs')
+          const trace = fs.readFileSync(process.env.TRACE_FILE, 'utf8').trim()
+          const marker = '<!-- touchstone-trace -->'
+          const body = [
+            marker,
+            '### Touchstone trace',
+            '',
+            'Each approved sentence, the Cucumber scenario that runs it, and the step definition.',
+            '',
+            '```text',
+            trace,
+            '```',
+            '',
+          ].join('\n')
+          const { owner, repo } = context.repo
+          const issue_number = context.issue.number
+          const comments = await github.rest.issues.listComments({
+            owner, repo, issue_number, per_page: 100,
+          })
+          const existing = comments.data.find((comment) => comment.body && comment.body.includes(marker))
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner, repo, comment_id: existing.id, body,
+            })
+          } else {
+            await github.rest.issues.createComment({
+              owner, repo, issue_number, body,
+            })
+          }
+    - name: Trace result
+      shell: bash
+      run: |
+        if [ "${{ steps.trace.outputs.code }}" != "0" ]; then
+          exit 1
+        fi

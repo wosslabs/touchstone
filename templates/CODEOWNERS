@@ -1,6 +1,7 @@
 # Copy the paths you want a person to approve into the application's CODEOWNERS.
 # Replace the team with the people who may change behavior sentences and the pipeline.
 
-/acceptance/examples/ @YOUR_GITHUB_ORG/YOUR_TEAM
+/stories/ @YOUR_GITHUB_ORG/YOUR_TEAM
 /.github/workflows/ @YOUR_GITHUB_ORG/YOUR_TEAM
-/ci/check_acceptance_guard.py @YOUR_GITHUB_ORG/YOUR_TEAM
+/ci/check-acceptance-guard.js @YOUR_GITHUB_ORG/YOUR_TEAM
+/ci/check-trace.js @YOUR_GITHUB_ORG/YOUR_TEAM

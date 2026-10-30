@@ -17,7 +17,7 @@ Do not replace a working area because writing it again looks easier. Say which e
 
 ## Write the list
 
-Save `acceptance/drafts/features.md`.
+Save `drafts/stories.md`.
 
 Each row is one pull request. If you cannot name the few files it would touch, the row is too big. Split it.
 
@@ -34,7 +34,7 @@ Out of scope: refunds, receipts, saved cards.
 
 Order them so the first row is useful on its own. Later rows may use earlier ones. A row that says "and" is two features.
 
-A screen is still a feature. Describe what the person sees and does, not the widgets' code.
+A screen is still a feature. Describe what the person sees and does, not the widgets' code. The later check for that row is a Cucumber scenario driven by Playwright. Do not set that up in this step.
 
 ## Stop
 
