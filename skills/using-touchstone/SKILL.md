@@ -13,7 +13,8 @@ Announce at the start of a behavior change: "I'm using Touchstone."
 
 | Moment | Skill |
 | --- | --- |
-| A feature, bug, or behavior change has no approved failing sentence yet | `touchstone` |
+| The request is a product, a release, or more than one thing a person can do | `touchstone-features` |
+| One feature is chosen and has no approved failing sentence yet | `touchstone` |
 | The person has agreed the failure is the missing behavior | `touchstone-build` |
 | They asked a question, or asked you to look something up | Answer. No new sentence. |
 | They asked for a rename, a typo, a comment, or a docs-only edit | Do that edit. No new sentence. |
@@ -26,11 +27,12 @@ If a second acceptance-test skill is also installed, follow Touchstone. Two of t
 
 ## Order
 
-1. Find the situations and draft the sentences.
-2. Stop until the person edits them and saves the approved file under `acceptance/examples/`.
-3. Run the new sentence. Stop until they agree the failure is the missing behavior.
-4. Design, unit-test, and implement in small slices.
-5. Re-run the approved sentence and the project's full suite. Paste the output.
-6. Open a pull request. Do not merge it yourself.
+1. If the request is a whole product, list the features and wait until they pick one.
+2. Find the situations for that one feature and draft the sentences.
+3. Stop until the person edits them and saves the approved file under `acceptance/examples/`.
+4. Run the new sentence. Stop until they agree the failure is the missing behavior.
+5. Read the existing code, then design, unit-test, and implement that one feature.
+6. Re-run the approved sentence and the project's full suite. Paste the output.
+7. Open one pull request for that feature. Do not merge it yourself. Do not start the next feature in the same pull request.
 
 A hook refusal on `acceptance/examples/`, `.github/workflows/`, or `ci/check_acceptance_guard.py` is correct. Do not route around it.

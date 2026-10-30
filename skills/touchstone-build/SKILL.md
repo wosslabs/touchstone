@@ -15,6 +15,14 @@ Before the first unit test, find how this repository builds and tests. Read the 
 
 Use the focused command inside the loop. Use the full suite before you claim the slice is done. A green run of the one test you wrote is not a green suite.
 
+## Read the code you will change
+
+Before the design, read the existing code this feature will touch. Name the module you will extend. If you cannot name it, you have not looked.
+
+Change that module. Do not throw the file away and write a new one. Regenerating a file spends a large change to avoid reading the one that is already there.
+
+This pull request is the one feature they chose. It does not include the next row from `acceptance/drafts/features.md`. If you cannot explain every changed file in one sentence, stop and split the feature.
+
 ## Design
 
 Write a short design in `acceptance/drafts/<short-name>-design.md`. A few paragraphs:
@@ -45,6 +53,8 @@ Inside a slice:
 6. Run the project's full suite. Any failure, including one you did not cause, goes in the report by name.
 
 A unit test that only counts mock calls does not pin the behavior. Assert the outcome.
+
+A test must give the same result every time you run it. Do not read the real clock, do not use an unseeded random value, and do not call a network service outside the application under test. A test that sometimes fails is not finished. Fix the test until the same command produces the same result.
 
 ```text
 Bad:  expect(chargeMock).toHaveBeenCalled()
