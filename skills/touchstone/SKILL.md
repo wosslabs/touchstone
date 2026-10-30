@@ -11,7 +11,7 @@ No production code, design, or implementation plan until those sentences are app
 
 ## When to use
 
-Use this skill for a new behavior, a bug, or a change in what the system does.
+Use this skill for one chosen feature, a bug, or a change in what the system does. If the request is a product or more than one feature, stop and follow `touchstone-features` first.
 
 Do not use it for a rename, a typo, a comment, a docs-only edit, or a question. A refactor that must keep current behavior follows the refactor rule below and does not add sentences.
 
@@ -63,6 +63,18 @@ Good: Then the customer is not charged
 ```
 
 Do not name classes, functions, tables, columns, HTTP paths, status codes, frameworks, or source files.
+
+When a person will look at a screen, name the screen, the control they use, and the words they see.
+
+```markdown
+Scenario: Declined card on the checkout screen
+Given the bank declines the card
+When the customer presses Pay
+Then the words "payment failed" appear under the Pay button
+And the amount on the screen does not change
+```
+
+The driver opens the running screen and checks those words. A description of a picture is not a check. A fake button that never shows the screen is not a check. If this repository has no way to open a screen, say so, and check the same words on the response the screen displays. Do not add a new browser tool in this change unless they ask.
 
 If someone will have to diagnose this failure later, add a sentence for what they would look up. Name the event and the id. Do not name a logging library, and do not put secrets in the sentence.
 

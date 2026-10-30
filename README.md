@@ -16,7 +16,13 @@ A skill tells the agent to stop. The hook and the CI check are what still work w
 
 This repository is not the other open-source projects that use the name Touchstone. Here the name means the sentence you test a change against.
 
-New to Touchstone, or reading in a second language? Start with [What Touchstone does](docs/what-touchstone-does.md). It uses short sentences.
+New to Touchstone, or reading in a second language? Start with [How to use Touchstone](docs/what-touchstone-does.md). It is the session, step by step, including the words you say when the agent skips one.
+
+## How a session goes
+
+1. **touchstone-features.** You name a product. The agent reads the code you already have, lists features small enough for one pull request, and waits. You pick one.
+2. **touchstone.** The agent drafts examples for that feature only, including what a person sees on a screen. You edit them and you save the approved file. The agent runs them and waits until you agree the failure is the missing behavior.
+3. **touchstone-build.** The agent changes the smallest existing code that makes that feature pass. Unit tests first. One pull request. It does not rewrite a module, and it does not start the next feature.
 
 ## Install the skill
 
@@ -31,7 +37,7 @@ The marketplace file in this repo registers that plugin. The included hook refus
 
 ### Cursor
 
-Copy the `skills/` directory to `.cursor/skills/` in the application, or install this folder as a local plugin. The plugin manifest points at `hooks/hooks-cursor.json`. Three skills ship together: `using-touchstone`, `touchstone`, and `touchstone-build`. They include the worked failure output, the repository's own test command, and a diff check before the pull request.
+Copy the `skills/` directory to `.cursor/skills/` in the application, or install this folder as a local plugin. The plugin manifest points at `hooks/hooks-cursor.json`. Four skills ship together: `using-touchstone`, `touchstone-features`, `touchstone`, and `touchstone-build`.
 
 If the plugin hook does not load, copy the script into the application and use the template:
 
@@ -61,9 +67,9 @@ The agent is not supposed to write that file. Branch protection is what makes th
 
 ## What the agent is told to do
 
-Touchstone is enough on its own. A session starts by reading `using-touchstone`, which sends a behavior change through the other two skills.
+Touchstone is enough on its own. A session starts by reading `using-touchstone`. A product goes through `touchstone-features` before any example is written.
 
-1. Ask until the situations are clear, then draft them in customer language. No class names, tables, URLs, or status codes.
+1. List features small enough for one pull request, and wait until you pick one. Then draft examples for that feature only, in customer language, including the words on a screen. No class names, tables, URLs, or status codes.
 2. Stop until you edit and approve them.
 3. Build a driver that runs the approved sentence against the real system. A mock in place of that system is not the check.
 4. Paste the failure and stop again. The failure has to be the missing behavior. A compile error is a broken driver. A pass on the first run means the check is empty or the behavior already exists.
