@@ -1,0 +1,2 @@
+#!/bin/sh
+printf '%s\n' 'Touchstone: on a feature, bugfix, or behavior change, follow the using-touchstone skill before any plan or production code.'

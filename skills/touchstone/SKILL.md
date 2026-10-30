@@ -21,7 +21,7 @@ No production code, design, or implementation plan until those sentences are app
 
 ### 1. Draft
 
-Write `acceptance/drafts/<short-name>.md`.
+Ask one question at a time until you can name the situations that matter. Use their words. Play one situation back in a few sentences and ask what is wrong or missing. Then write `acceptance/drafts/<short-name>.md`.
 
 One situation per block. Use words a customer would use. Given / When / Then when that form is clearer.
 
@@ -43,7 +43,7 @@ Approval is the edited sentences. Do not design, plan, or write code in this tur
 
 ### 3. The approved file is theirs
 
-They save the approved file under `acceptance/examples/`. You do not create or edit that directory, and you do not edit `.github/workflows/`. Drafts stay in `acceptance/drafts/`.
+They save the approved file under `acceptance/examples/`. You do not create or edit that directory, and you do not edit `.github/workflows/` or `ci/check_acceptance_guard.py`. Drafts stay in `acceptance/drafts/`.
 
 ### 4. Make it executable
 
@@ -59,11 +59,11 @@ If the scenario already passes, stop. Say whether the behavior is already there 
 
 If you already wrote production code for this change, delete it before this run.
 
+End the turn. Design starts only after they agree this failure is the missing behavior.
+
 ### 6. Design, then code
 
-After the failure is the right one, write a short design: which parts of the system make the sentences true. Then implement the smallest change. Unit tests may describe internal structure. They do not replace the approved sentences.
-
-Re-run the scenario and paste the passing output.
+When they agree the failure is the missing behavior, follow the touchstone-build skill. Do not start it in the same turn as the failure output.
 
 ### 7. Leave the check alone
 
