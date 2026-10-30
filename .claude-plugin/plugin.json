@@ -1,7 +1,7 @@
 {
   "name": "touchstone",
-  "description": "Approve a behavior sentence and watch it fail before any production code is written.",
-  "version": "0.1.0",
+  "description": "A standalone behavior-first workflow. Approve a sentence, watch it fail, then build.",
+  "version": "0.2.0",
   "author": {
     "name": "wosslabs"
   },
