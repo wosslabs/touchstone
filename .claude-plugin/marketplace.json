@@ -8,7 +8,7 @@
     {
       "name": "touchstone",
       "description": "A standalone behavior-first workflow. Approve a sentence, watch it fail, then build.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "source": "./",
       "author": {
         "name": "wosslabs"
