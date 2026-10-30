@@ -21,7 +21,7 @@ Do not use it for a rename, a typo, a comment, a docs-only edit, or a question. 
 
 **Bug.** Write what happens today and what should happen. Show today's behavior failing. Do not start from a guessed fix. If you cannot make today's behavior happen again, stop and say what you tried. Do not invent a fix for a failure you have not seen.
 
-**Refactor.** Do not add, delete, or rewrite anything in `acceptance/examples/`. The current sentences stay true. If a sentence has to change, stop and ask.
+**Refactor.** Do not add, delete, or rewrite anything in `stories/`. The current sentences stay true. If a sentence has to change, stop and ask.
 
 ## Four layers
 
@@ -42,7 +42,7 @@ Play one situation back in their words, including what is out of scope. "Sounds 
 
 Do not offer a menu of features they did not ask for. Do not fill a gap in silence. If you are assuming the database, the client, or who the sentence is for, say the assumption and let them correct it.
 
-When the situations are clear, write `acceptance/drafts/<short-name>.md`. One situation per block. Enough situations to change a decision. Not the whole product.
+When the situations are clear, write `drafts/<short-name>.md`. One situation per block. Enough situations to change a decision. Not the whole product.
 
 ```markdown
 Scenario: Declined card
@@ -74,7 +74,7 @@ Then the words "payment failed" appear under the Pay button
 And the amount on the screen does not change
 ```
 
-The driver opens the running screen and checks those words. A description of a picture is not a check. A fake button that never shows the screen is not a check. If this repository has no way to open a screen, say so, and check the same words on the response the screen displays. Do not add a new browser tool in this change unless they ask.
+Playwright opens the running screen and checks those words. A description of a picture is not a check. A fake button that never shows the screen is not a check.
 
 If someone will have to diagnose this failure later, add a sentence for what they would look up. Name the event and the id. Do not name a logging library, and do not put secrets in the sentence.
 
@@ -94,13 +94,17 @@ Approval is the edited sentences saved by them. Do not design, plan, or write co
 
 ### 3. The approved file is theirs
 
-They save the approved file under `acceptance/examples/`. You do not create or edit that directory, and you do not edit `.github/workflows/` or `ci/check_acceptance_guard.py`. Drafts stay in `acceptance/drafts/`.
+They save the approved file under `stories/`. You do not create or edit that directory, and you do not edit `.github/workflows/`, `ci/check-acceptance-guard.js`, or `ci/check-trace.js`. Drafts stay in `drafts/`.
 
 ### 4. Make it executable
 
-Before the first run, find how this repository runs a test. Read the build file, the README, or CI. Use that command. Do not assume `npm test` on a Maven, Gradle, or pytest repo.
+The acceptance check is Cucumber and Playwright. Cucumber is the sentence. Playwright is the driver that performs the sentence on the running screen.
 
-Add a driver under `acceptance/drivers/` that carries out the sentence against the running system. The scenario words stay the approved sentences.
+- Copy the approved scenario titles and the Given, When, Then, and And lines into `features/<short-name>.feature`. Do not rewrite them.
+- Put the step definitions in `features/`. Those steps are the vocabulary. They open the screen with Playwright, use the control the sentence names, and read the visible words the sentence names. Words left in an input are not words on a list.
+- Add an `acceptance` script that runs `cucumber-js`. If `@cucumber/cucumber` and `playwright` are not already dependencies, install them and install Playwright's Chromium. Record the versions in the application's `package.json`.
+
+A unit test, a hand-rolled HTTP client, or a mock is not this check. The unit test comes later, in `touchstone-build`, and it does not replace the scenario.
 
 A driver that never reaches the system is not a check:
 
@@ -117,7 +121,9 @@ An empty catch that hides the error, a stub that returns the expected message, a
 
 ### 5. Show the failure
 
-Run the new scenario only. Paste the command and the full output in the same message. "It failed" is not output.
+Run `npm run acceptance` for the new scenario only. Also run `node ci/check-trace.js`. Paste both commands and both outputs in the same message. "It failed" is not output.
+
+The trace script prints one row per scenario: the approved example file, the Cucumber feature file, and the step count. That row is the link from the sentence to the check. If it says the words differ, fix the feature file. Do not change the example.
 
 The failure you want names the missing behavior:
 
@@ -127,7 +133,7 @@ Expected the customer not to be charged
 The customer was charged 20.00
 ```
 
-A broken driver looks different. Fix the driver and run it again. Do not treat this as the red bar:
+A broken driver looks different. Follow `touchstone-repair`, fix the driver, and run it again. Do not treat this as the red bar:
 
 ```text
 ERROR
@@ -146,14 +152,14 @@ When they agree the failure is the missing behavior, follow the `touchstone-buil
 
 ### 7. Leave the check alone
 
-You do not edit `acceptance/examples/`, `.github/workflows/`, or `ci/check_acceptance_guard.py`. You do not disable, delete, or loosen a test to get a green result. If a sentence is wrong, ask them to change it.
+You do not edit `stories/`, `.github/workflows/`, `ci/check-acceptance-guard.js`, or `ci/check-trace.js`. You do not disable, delete, or loosen a test to get a green result. If a sentence is wrong, ask them to change it.
 
 These are the cheap ways to a green bar. Do not use them:
 
 - Skip, ignore, or disable the new test
 - Delete an assertion or catch the error and continue
 - Replace the system with a stub that already returns the right words
-- Weaken `ci/check_acceptance_guard.py` or the workflow in the same change
+- Weaken `ci/check-acceptance-guard.js`, `ci/check-trace.js`, or the workflow in the same change
 
 A refusal from the hook is the correct outcome. Do not route around it with the shell.
 
@@ -182,13 +188,15 @@ The form accepted the customer
 | --- | --- |
 | The feature is small | One sentence is enough. Write it. |
 | The ask is clear enough | If you cannot say what the customer sees, ask one question. |
-| They said sounds good | That is not the edited file. Wait for the file under `acceptance/examples/`. |
+| They said sounds good | That is not the edited file. Wait for the file under `stories/`. |
 | I'll add the test after it works | Delete the new production code and return to step 5. |
 | I'll keep the code as a reference | Delete it. A reference gets adapted. That is a test written after the code. |
 | The test passed immediately | Stop. The check is empty, or the behavior already exists. |
 | The error is a missing import, close enough | That is a broken driver. Fix it and run again. |
 | I'll update the example to match the code | Stop. Ask them to change the example. |
 | I'll turn this test off for now | Stop. A skipped test is not a failure you showed them. |
+| I'll check the HTTP body instead of the screen | Stop. Playwright has to open the screen and read the words. |
+| I'll reword the feature so the trace passes | Stop. The feature copies the approved example. Ask them to change the example. |
 | The pipeline needs a tweak in this same change | Stop. A pipeline change is a separate edit for a person to approve. |
 | I cannot reproduce the bug, but the fix is obvious | Stop. Report what you tried. |
 
@@ -202,15 +210,15 @@ Stop when you notice one of these:
 - A passing scenario on the first run, treated as success
 - A stack trace treated as the missing behavior
 - A mock, a stub, or an empty catch standing in for the system
-- An edit to `acceptance/examples/` or the workflow from this session
+- An edit to `stories/` or the workflow from this session
 
 ## Checklist
 
 Before you hand off to `touchstone-build`:
 
-- [ ] The sentences use customer words, and the person saved them under `acceptance/examples/`
-- [ ] The driver starts the real system
-- [ ] You pasted the command and the output
+- [ ] The sentences use customer words, and the person saved them under `stories/`
+- [ ] Cucumber has the approved words, and Playwright opens the real screen
+- [ ] You pasted `npm run acceptance` and `node ci/check-trace.js`
 - [ ] The output names the missing behavior, not a compile error
 - [ ] They agreed that failure is the right one
 - [ ] Any production code written early was deleted

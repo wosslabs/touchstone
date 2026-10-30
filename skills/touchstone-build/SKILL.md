@@ -21,11 +21,11 @@ Before the design, read the existing code this feature will touch. Name the modu
 
 Change that module. Do not throw the file away and write a new one. Regenerating a file spends a large change to avoid reading the one that is already there.
 
-This pull request is the one feature they chose. It does not include the next row from `acceptance/drafts/features.md`. If you cannot explain every changed file in one sentence, stop and split the feature.
+This pull request is the one feature they chose. It does not include the next row from `drafts/stories.md`. If you cannot explain every changed file in one sentence, stop and split the feature.
 
 ## Design
 
-Write a short design in `acceptance/drafts/<short-name>-design.md`. A few paragraphs:
+Write a short design in `drafts/<short-name>-design.md`. A few paragraphs:
 
 - Which parts of the system make each approved sentence true
 - What is out of scope
@@ -75,7 +75,7 @@ If you cannot reproduce it, stop. Say what you tried. Do not ship a guess.
 
 ## The sentence passes
 
-Re-run every approved scenario for this change against the real system, then the full suite. Paste both commands and both outputs in the same message.
+Re-run `npm run acceptance` for every approved scenario, then `node ci/check-trace.js`, then the project's full suite. Paste each command and its output in the same message. A green Cucumber run whose words differ from the approved example is not done.
 
 Do not say "should pass", "looks correct", or "done" without that output. A run from earlier in the session does not count. The code has changed since then.
 
@@ -86,7 +86,7 @@ Read the diff. These findings block the pull request:
 - A new skip, ignore, or disable
 - An assertion removed, or a catch that ignores an error
 - A stub left where the sentence required real behavior
-- Any change under `acceptance/examples/`, `.github/workflows/`, or `ci/check_acceptance_guard.py`
+- Any change under `stories/`, `.github/workflows/`, `ci/check-acceptance-guard.js`, or `ci/check-trace.js`
 
 You can explain the slice to a person who will support it: what it does, and what it does not do. If you cannot, the slice is too big. Split it before you open the pull request.
 
@@ -96,7 +96,7 @@ If the harness can start a fresh reviewer, give that reviewer the approved sente
 
 Open a pull request. The acceptance guard on that pull request is the merge verdict. A green run on your machine is not that verdict. Do not merge the branch locally and call the work integrated.
 
-The pull request says which sentences it makes true, and pastes the command output from the full suite. It does not include a second copy of the implementation in the description.
+The pull request names each scenario, the example file, the Cucumber feature file, and the module that changed. It pastes the trace output, the Cucumber output, and the full suite output. It does not include a second copy of the implementation in the description.
 
 ## Excuses
 
@@ -126,7 +126,8 @@ The pull request says which sentences it makes true, and pastes the command outp
 
 - [ ] Each new unit test failed for the missing behavior before the code that passes it
 - [ ] Each slice is one sentence's worth of behavior, committed on a green suite
-- [ ] The approved scenarios pass against the real system, and you pasted that output
+- [ ] `npm run acceptance` passed against the real screen, and you pasted that output
+- [ ] `node ci/check-trace.js` passed, and the pull request includes that trace
 - [ ] The full suite output is in the pull request
 - [ ] The diff does not touch protected paths, skips, or loosened assertions
 - [ ] You can explain the slice without reading the code line by line

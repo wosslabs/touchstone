@@ -9,8 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "22"
       - name: Run unit tests
-        run: python3 -m unittest discover -s tests -v
+        run: node --test tests/*.test.js
+      - name: Action runs the trace
+        uses: ./
+        with:
+          comment: "false"

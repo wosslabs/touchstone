@@ -8,13 +8,13 @@
     ],
     "preToolUse": [
       {
-        "command": "./hooks/protect-acceptance.py",
+        "command": "./hooks/protect-acceptance.js",
         "failClosed": true
       }
     ],
     "beforeShellExecution": [
       {
-        "command": "./hooks/protect-acceptance.py",
+        "command": "./hooks/protect-acceptance.js",
         "failClosed": true
       }
     ]

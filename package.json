@@ -1,0 +1,27 @@
+{
+  "name": "@wosslabs/touchstone",
+  "version": "0.7.0",
+  "type": "module",
+  "description": "Approve a behavior sentence, watch it fail, then build. Every scenario stays traced to the code that runs it.",
+  "bin": {
+    "touchstone": "./cli/touchstone.js"
+  },
+  "files": [
+    "cli/",
+    "ci/check-acceptance-guard.js",
+    "ci/check-trace.js",
+    "hooks/protect-acceptance.js",
+    "templates/"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wosslabs/touchstone.git"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
