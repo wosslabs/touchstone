@@ -29,7 +29,7 @@ The marketplace file in this repo registers that plugin. The included hook refus
 
 ### Cursor
 
-Copy the `skills/` directory to `.cursor/skills/` in the application, or install this folder as a local plugin. The plugin manifest points at `hooks/hooks-cursor.json`. Three skills ship together: `using-touchstone`, `touchstone`, and `touchstone-build`.
+Copy the `skills/` directory to `.cursor/skills/` in the application, or install this folder as a local plugin. The plugin manifest points at `hooks/hooks-cursor.json`. Three skills ship together: `using-touchstone`, `touchstone`, and `touchstone-build`. They include the worked failure output, the repository's own test command, and a diff check before the pull request.
 
 If the plugin hook does not load, copy the script into the application and use the template:
 
