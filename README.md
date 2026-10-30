@@ -16,6 +16,8 @@ A skill tells the agent to stop. The hook and the CI check are what still work w
 
 This repository is not the other open-source projects that use the name Touchstone. Here the name means the sentence you test a change against.
 
+New to Touchstone, or reading in a second language? Start with [What Touchstone does](docs/what-touchstone-does.md). It uses short sentences.
+
 ## Install the skill
 
 ### Claude Code
