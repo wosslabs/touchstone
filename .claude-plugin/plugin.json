@@ -1,0 +1,18 @@
+{
+  "name": "touchstone",
+  "description": "Approve a behavior sentence and watch it fail before any production code is written.",
+  "version": "0.1.0",
+  "author": {
+    "name": "wosslabs"
+  },
+  "homepage": "https://github.com/wosslabs/touchstone",
+  "repository": "https://github.com/wosslabs/touchstone",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "atdd",
+    "acceptance-tests",
+    "examples",
+    "workflows"
+  ]
+}

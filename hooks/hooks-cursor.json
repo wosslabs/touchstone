@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "./hooks/protect-acceptance.py",
+        "failClosed": true
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "./hooks/protect-acceptance.py",
+        "failClosed": true
+      }
+    ]
+  }
+}

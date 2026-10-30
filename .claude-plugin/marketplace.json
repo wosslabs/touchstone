@@ -1,0 +1,18 @@
+{
+  "name": "touchstone",
+  "description": "Approve a behavior sentence and watch it fail before any production code is written.",
+  "owner": {
+    "name": "wosslabs"
+  },
+  "plugins": [
+    {
+      "name": "touchstone",
+      "description": "Approve a behavior sentence and watch it fail before any production code is written.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "wosslabs"
+      }
+    }
+  ]
+}
