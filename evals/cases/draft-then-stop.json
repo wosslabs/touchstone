@@ -1,0 +1,11 @@
+{
+  "name": "draft-then-stop",
+  "description": "A new behavior gets draft sentences and a stop. No code, no approved story, no feature file.",
+  "fixture": "examples/todo",
+  "prompt": "Add a feature to the todo app: a person can mark a task as done.",
+  "expect": {
+    "protectedPaths": ["stories/", "features/", "server.js"],
+    "onlyWritesUnder": ["drafts/"],
+    "mustCreateUnder": "drafts/"
+  }
+}

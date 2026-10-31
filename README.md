@@ -262,6 +262,10 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 
 Step definitions are found by scanning `features/` and `src/test/` for `.js`, `.ts`, `.py`, `.java`, and `.kt` files. If a feature exists and no definition is found, the trace fails instead of passing silently. Cucumber-JVM `@Given/@When/@Then` annotations bind the same way.
 
+## Check that agents follow the skills
+
+`npm test` proves the guards work. It does not prove an agent follows the skills. `npm run eval` starts real `claude -p` sessions with this plugin loaded, each on a fresh copy of `examples/todo`, then checks what the agent changed: stories untouched, nothing written outside `drafts/` when it should stop after drafting, injected instructions in a file ignored. It costs money (`--budget` caps each case, default 1.00 USD) and results vary between runs, so run it on purpose and read `evals/results/*.jsonl` when a case fails. `node evals/run.js --dry` prints the commands without calling the model. Cases live in `evals/cases/`. Only Claude Code is covered so far, not Cursor.
+
 The workflow compares the pull request with its base commit. It fails the pull request when a line in `stories/` is removed or reworded without a `Touchstone-Allow-Drop:` line, when the Cucumber feature no longer matches those sentences, when a skipped, focused (`.only`), or pending test is added, when a new or changed scenario passes against the base production code (the `red-command` check), or when the `command` input (`npm run acceptance` in the template) fails. The optional `holdout-command` input runs scenarios kept outside the repository, such as in a private repository fetched with a secret the agent cannot read, so the agent cannot tune its code to the examples it can see. The command is set in the workflow file, which the hook and CODEOWNERS protect.
 
 A person who is retiring a sentence adds a line in that same approved file:
