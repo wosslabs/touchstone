@@ -2,34 +2,35 @@ package example.todo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
-import io.cucumber.spring.CucumberContextConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.env.Environment;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 
-@CucumberContextConfiguration
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// Acceptance steps talk to the running application over HTTP only. They never
+// touch a production class except the entry point, so a pull request can swap
+// in these steps on top of the base commit without recompiling anything else.
 public class TaskSteps {
 
     private final HttpClient client = HttpClient.newHttpClient();
 
-    @Autowired
-    private Environment environment;
-
-    @Autowired
-    private TaskList tasks;
+    private ConfigurableApplicationContext application;
 
     @Before
-    public void emptyTheList() {
-        tasks.clear();
+    public void startTheApplication() {
+        application = SpringApplication.run(TodoApplication.class, "--server.port=0", "--spring.main.banner-mode=off");
+    }
+
+    @After
+    public void stopTheApplication() {
+        application.close();
     }
 
     @Given("the list has no tasks")
@@ -54,7 +55,7 @@ public class TaskSteps {
     }
 
     private URI uri() {
-        return URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port") + "/tasks");
+        return URI.create("http://127.0.0.1:" + application.getEnvironment().getProperty("local.server.port") + "/tasks");
     }
 
     private void add(String title) throws Exception {

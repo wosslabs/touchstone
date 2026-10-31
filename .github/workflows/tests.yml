@@ -32,7 +32,7 @@ jobs:
           cache-dependency-path: examples/jvm-todo/pom.xml
       - name: Run the JVM example scenarios
         working-directory: examples/jvm-todo
-        run: mvn -B test
+        run: ./mvnw -B verify
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

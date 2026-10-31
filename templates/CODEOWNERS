@@ -13,7 +13,23 @@
 /package-lock.json @YOUR_GITHUB_ORG/YOUR_TEAM
 /cucumber.js @YOUR_GITHUB_ORG/YOUR_TEAM
 
-# Step definitions sit between the approved sentence and the system. Uncomment
-# the line that matches your layout so weakening a step needs approval too.
-# /features/**/*.js @YOUR_GITHUB_ORG/YOUR_TEAM
-# /src/test/java/ @YOUR_GITHUB_ORG/YOUR_TEAM
+# JVM build files. A pull request that edits these can switch tests off
+# (testFailureIgnore) or run code before the verdict.
+/pom.xml @YOUR_GITHUB_ORG/YOUR_TEAM
+/build.gradle @YOUR_GITHUB_ORG/YOUR_TEAM
+/build.gradle.kts @YOUR_GITHUB_ORG/YOUR_TEAM
+/settings.gradle @YOUR_GITHUB_ORG/YOUR_TEAM
+/settings.gradle.kts @YOUR_GITHUB_ORG/YOUR_TEAM
+/mvnw @YOUR_GITHUB_ORG/YOUR_TEAM
+/gradlew @YOUR_GITHUB_ORG/YOUR_TEAM
+/.mvn/ @YOUR_GITHUB_ORG/YOUR_TEAM
+/gradle/wrapper/ @YOUR_GITHUB_ORG/YOUR_TEAM
+
+# Step definitions sit between the approved sentence and the system. A dishonest
+# step makes every sentence pass, and it runs in the same process as the test
+# runner, so review is the only real defence. Keep the line that matches your
+# layout and delete the others.
+/features/**/*.js @YOUR_GITHUB_ORG/YOUR_TEAM
+/features/**/*.ts @YOUR_GITHUB_ORG/YOUR_TEAM
+/features/**/*.py @YOUR_GITHUB_ORG/YOUR_TEAM
+/src/acceptanceTest/ @YOUR_GITHUB_ORG/YOUR_TEAM

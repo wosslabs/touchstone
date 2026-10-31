@@ -26,5 +26,8 @@ jobs:
       - uses: wosslabs/touchstone@v1
         with:
           base: ${{ github.event.pull_request.base.sha }}
-          command: mvn -B test
-          red-command: mvn -B -q test -Dcucumber.filter.name="$TOUCHSTONE_SCENARIO" -Dcucumber.plugin="message:$TOUCHSTONE_MESSAGES"
+          command: ./mvnw -B verify
+          # Unit tests (src/test) are skipped here: they reference new production
+          # code that does not exist at the base commit. Acceptance scenarios live
+          # in src/acceptanceTest and talk to the running app over HTTP only.
+          red-command: ./mvnw -B -q verify -DskipUnitTests=true -Dcucumber.filter.name="$TOUCHSTONE_SCENARIO" -Dcucumber.plugin="message:$TOUCHSTONE_MESSAGES"
