@@ -2,7 +2,10 @@
 # `npx @wosslabs/touchstone init` does that.
 # The action runs the sentence guard, the trace check, the acceptance command,
 # and posts the trace on the pull request. The command lives here, in a
-# protected file, so an agent cannot redefine what passing means. Node.js is available on GitHub-hosted runners.
+# protected file, so an agent cannot redefine what passing means.
+# red-command runs each new or changed scenario against the base production
+# code. It must fail there. A scenario that passes before any code changed is
+# empty, or already built. Node.js is available on GitHub-hosted runners.
 # The workflow needs permission to write a pull request comment.
 name: Acceptance guard
 
@@ -27,4 +30,6 @@ jobs:
       - uses: wosslabs/touchstone@v1
         with:
           command: npm run acceptance
+          setup: npm ci
+          red-command: npx cucumber-js --name "$TOUCHSTONE_SCENARIO"
           base: ${{ github.event.pull_request.base.sha }}

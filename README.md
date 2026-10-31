@@ -223,7 +223,7 @@ Install the plugin once. The files in [Setup](#setup) are copied into each appli
 /plugin install touchstone@touchstone
 ```
 
-The marketplace file in this repository registers the plugin. The included hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `ci/check-acceptance-guard.js`, and `ci/check-trace.js`.
+The marketplace file in this repository registers the plugin. The included hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `ci/check-acceptance-guard.js`, `ci/check-trace.js`, and `ci/check-red-green.js`.
 
 ### Cursor
 
@@ -255,12 +255,12 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 `npx @wosslabs/touchstone init` does the first four steps. You still replace the team name and install the browser.
 
 1. Keep approved sentences in `stories/`. Markdown and `.feature` files both count. The agent may draft in `drafts/`. You copy a draft into `stories/` when it says what you mean.
-2. Copy `ci/check-acceptance-guard.js` and `ci/check-trace.js` into the application's `ci/` directory so a laptop can run the same checks as the pull request.
+2. Copy `ci/check-acceptance-guard.js`, `ci/check-trace.js`, and `ci/check-red-green.js` into the application's `ci/` directory so a laptop can run the same checks as the pull request.
 3. Copy `templates/acceptance-guard.yml` to `.github/workflows/acceptance-guard.yml`. The workflow calls `wosslabs/touchstone@v1`, which runs both checks and posts the trace as a pull request comment. Tag `v1` on this repository before that workflow can succeed. Give the workflow permission to write pull request comments.
 4. Copy the paths in `templates/CODEOWNERS` into the application's `CODEOWNERS`. Replace `@YOUR_GITHUB_ORG/YOUR_TEAM` with the people who may change behavior sentences and the pipeline. Turn on branch protection so those paths require a review from that team.
 5. Add Cucumber and Playwright to the application. The acceptance script is `npm run acceptance`, and it runs `cucumber-js`. Commit `package-lock.json` so the pipeline installs the same versions. Unit tests stay in the application's own test tool. Cucumber is the acceptance layer. Playwright drives a web screen, as in `examples/todo`. An HTTP step calls the running service. A mobile step runs Maestro and reads the visible text. The feature file does not name the driver. The trace still names the file that defines the step.
 
-The workflow compares the pull request with its base commit. It fails the pull request when a line in `stories/` is removed or reworded without a `Touchstone-Allow-Drop:` line, when the Cucumber feature no longer matches those sentences, when a skipped, focused (`.only`), or pending test is added, or when the `command` input (`npm run acceptance` in the template) fails. The command is set in the workflow file, which the hook and CODEOWNERS protect.
+The workflow compares the pull request with its base commit. It fails the pull request when a line in `stories/` is removed or reworded without a `Touchstone-Allow-Drop:` line, when the Cucumber feature no longer matches those sentences, when a skipped, focused (`.only`), or pending test is added, when a new or changed scenario passes against the base production code (the `red-command` check), or when the `command` input (`npm run acceptance` in the template) fails. The command is set in the workflow file, which the hook and CODEOWNERS protect.
 
 A person who is retiring a sentence adds a line in that same approved file:
 
@@ -290,7 +290,8 @@ Every approved scenario has to appear, with the same lines, in a Cucumber featur
 | `skills/` | Instructions the agent follows, including `touchstone-repair` when the driver is broken |
 | `hooks/` | The session notice and the write protection for approved sentences and pipeline files |
 | `ci/check-acceptance-guard.js` | Fails a merge when approved sentences shrink or a test is switched off |
-| `ci/check-trace.js` | Fails a merge when a sentence, its Cucumber scenario, and its step definition diverge |
+| `ci/check-trace.js` | Fails a merge when a sentence, its Cucumber scenario, and its step definition diverge, or a step definition is empty |
+| `ci/check-red-green.js` | Fails a merge when a new or changed scenario already passes against the base production code |
 | `action.yml` | The GitHub Action other repositories run with `uses: wosslabs/touchstone@v1` |
 | `cli/touchstone.js` | `init` for a new application, published as `@wosslabs/touchstone` |
 | `examples/todo` | A small application whose sentences, features, and Playwright steps already trace |

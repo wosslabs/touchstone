@@ -90,9 +90,9 @@ test("links each step to its definition", () => {
     write(root, "stories/add-a-task.md", example);
     write(root, "features/add-a-task.feature", feature);
     write(root, "features/steps.js", [
-      'Given("the list has no tasks", async function () {})',
-      'When("the person types {string} and presses Add", async function () {})',
-      'Then("the words {string} appear on the list", async function () {})',
+      'Given("the list has no tasks", async function () { await check() } )',
+      'When("the person types {string} and presses Add", async function () { await check() } )',
+      'Then("the words {string} appear on the list", async function () { await check() } )',
       "",
     ].join("\n"));
     const result = runTrace(root);
@@ -136,6 +136,45 @@ test("passes when there are no sentences yet", () => {
     const result = runTrace(root);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /no approved scenarios/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails when a step definition does nothing", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "stories/add-a-task.md", example);
+    write(root, "features/add-a-task.feature", feature);
+    write(root, "features/steps.js", [
+      'Given("the list has no tasks", async function () { await check() })',
+      'When("the person types {string} and presses Add", async function () { /* later */ })',
+      'Then("the words {string} appear on the list", async function () { await check() })',
+      "",
+    ].join("\n"));
+    const result = runTrace(root);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /definition does nothing/);
+    assert.match(result.stdout, /presses Add/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails when an example row differs", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  const outline = (card) => `Scenario Outline: Pay
+Given a customer pays with <card>
+Examples:
+| card |
+| ${card} |
+`;
+  try {
+    write(root, "stories/pay.md", outline("visa"));
+    write(root, "features/pay.feature", outline("amex"));
+    const result = runTrace(root);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /steps differ/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

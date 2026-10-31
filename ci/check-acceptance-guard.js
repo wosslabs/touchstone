@@ -28,6 +28,7 @@ const SKIP = new RegExp(
 const IGNORED_PREFIXES = [
   "ci/check-acceptance-guard.js",
   "ci/check-trace.js",
+  "ci/check-red-green.js",
   "hooks/protect-acceptance.js",
   "tests/",
   "templates/",

@@ -4,6 +4,8 @@ import { join, relative, resolve } from "node:path";
 
 const SCENARIO = /^Scenario(?: Outline)?:\s*(.+)$/;
 const STEP = /^(Given|When|Then|And|But)\s+(.+)$/;
+const EXAMPLES = /^(?:Examples|Scenarios):/;
+const SCRIPT_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx"];
 const DEFINITION = /(?:Given|When|Then|defineStep|given|when|then)\s*\(\s*(['"`])([\s\S]*?)\1|@(?:given|when|then|step)\(\s*(['"])([\s\S]*?)\3/g;
 const STEP_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".py"];
 const CUCUMBER_TYPES = {
@@ -27,12 +29,30 @@ function posix(root, path) {
   return relative(root, path).split("\\").join("/");
 }
 
+function normalizeRow(line) {
+  return `| ${line.split("|").slice(1, -1).map((cell) => cell.trim()).join(" | ")} |`;
+}
+
 function scenariosIn(text) {
   const found = [];
   let title = null;
   let steps = [];
+  let inDocString = false;
   for (const raw of text.split("\n")) {
     const line = raw.trim();
+    if (line.startsWith('"""')) {
+      inDocString = !inDocString;
+      if (title !== null) {
+        steps.push('"""');
+      }
+      continue;
+    }
+    if (inDocString) {
+      if (title !== null) {
+        steps.push(`  ${line}`);
+      }
+      continue;
+    }
     if (!line || line.startsWith("#") || line.startsWith("```")) {
       continue;
     }
@@ -51,6 +71,10 @@ function scenariosIn(text) {
     const step = STEP.exec(line);
     if (step) {
       steps.push(`${step[1]} ${step[2].trim()}`);
+    } else if (line.startsWith("|") && line.endsWith("|")) {
+      steps.push(normalizeRow(line));
+    } else if (EXAMPLES.test(line)) {
+      steps.push(line);
     }
   }
   if (title !== null) {
@@ -148,13 +172,34 @@ function walk(directory, found = []) {
   return found;
 }
 
+function isEmptyBody(text, from) {
+  const open = text.indexOf("{", from);
+  if (open === -1) {
+    return false;
+  }
+  let depth = 0;
+  for (let cursor = open; cursor < text.length; cursor += 1) {
+    if (text[cursor] === "{") {
+      depth += 1;
+    } else if (text[cursor] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        const body = text.slice(open + 1, cursor).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
+        return body.trim() === "";
+      }
+    }
+  }
+  return false;
+}
+
 function definitionsIn(root) {
   const directory = join(root, "features");
   const found = [];
   for (const path of walk(directory).sort()) {
     const text = readFileSync(path, "utf8");
     for (const match of text.matchAll(DEFINITION)) {
-      found.push([posix(root, path), expressionToRegex(match[2] || match[4])]);
+      const empty = SCRIPT_SUFFIXES.some((suffix) => path.endsWith(suffix)) && isEmptyBody(text, match.index + match[0].length);
+      found.push([posix(root, path), expressionToRegex(match[2] || match[4]), empty]);
     }
   }
   return found;
@@ -163,17 +208,23 @@ function definitionsIn(root) {
 function bind(steps, definitions) {
   const lines = [];
   const missing = [];
+  const empty = [];
   for (const step of steps) {
     const body = STEP.exec(step);
-    const text = body ? body[2] : step;
-    const match = definitions.find(([, pattern]) => pattern.test(text));
+    if (!body) {
+      continue;
+    }
+    const match = definitions.find(([, pattern]) => pattern.test(body[2]));
     if (!match) {
       missing.push(step);
       continue;
     }
+    if (match[2]) {
+      empty.push(`${step}\n    definition: ${match[0]}`);
+    }
     lines.push(`  ${step}\n    definition: ${match[0]}`);
   }
-  return [lines, missing];
+  return [lines, missing, empty];
 }
 
 function compare(examples, features, definitions) {
@@ -200,9 +251,13 @@ function compare(examples, features, definitions) {
       );
       continue;
     }
-    let block = `${title}\n  story: ${example[0]}\n  feature: ${feature[0]}\n  steps: ${example[1].length}`;
+    let block = `${title}\n  story: ${example[0]}\n  feature: ${feature[0]}\n  steps: ${example[1].filter((step) => STEP.test(step)).length}`;
     if (definitions.length) {
-      const [lines, missing] = bind(example[1], definitions);
+      const [lines, missing, empty] = bind(example[1], definitions);
+      if (empty.length) {
+        failures.push(`scenario "${title}" has steps whose definition does nothing\n${empty.map((step) => `  ${step}`).join("\n")}`);
+        continue;
+      }
       if (missing.length) {
         failures.push(`scenario "${title}" has steps with no definition\n${missing.map((step) => `  ${step}`).join("\n")}`);
         continue;
