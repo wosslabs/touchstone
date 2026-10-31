@@ -338,3 +338,55 @@ test("compares tags, rules, tables, and doc strings", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+function traceWith(file, text) {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "stories/add-a-task.md", example);
+    write(root, "features/add-a-task.feature", feature);
+    write(root, file, text);
+    return runTrace(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test("binds Python behave steps and rejects empty ones", () => {
+  const good = [
+    '@given("the list has no tasks")', "def _(context):", "    assert titles(context) == []", "",
+    '@when(\'the person types "{title}" and presses Add\')', "def _(context, title):", "    add(context, title)", "",
+    '@then(\'the words "{title}" appear on the list\')', "def _(context, title):", "    assert title in titles(context)", "",
+  ].join("\n");
+  assert.equal(traceWith("features/steps/steps.py", good).status, 0);
+  const empty = good.replace("    assert title in titles(context)", "    pass");
+  const result = traceWith("features/steps/steps.py", empty);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /definition does nothing/);
+});
+
+test("binds Go godog steps and rejects empty ones", () => {
+  const go = (last) => [
+    "func InitializeScenario(ctx *godog.ScenarioContext) {",
+    '\tctx.Step(`^the list has no tasks$`, func() error { return check() })',
+    '\tctx.Step(`^the person types "([^"]*)" and presses Add$`, func(title string) error { return add(title) })',
+    `\tctx.Step(\`^the words "([^"]*)" appear on the list$\`, func(title string) error { ${last} })`,
+    "}",
+    "",
+  ].join("\n");
+  assert.equal(traceWith("features/steps_test.go", go("return shows(title)")).status, 0);
+  const result = traceWith("features/steps_test.go", go("return nil"));
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /definition does nothing/);
+});
+
+test("binds Rust cucumber steps and rejects empty ones", () => {
+  const rust = (last) => [
+    '#[given(expr = "the list has no tasks")]', "async fn empty(world: &mut World) { world.check().await; }", "",
+    '#[when(expr = "the person types {string} and presses Add")]', "async fn add(world: &mut World, title: String) { world.add(title).await; }", "",
+    '#[then(expr = "the words {string} appear on the list")]', `async fn shows(world: &mut World, title: String) { ${last} }`, "",
+  ].join("\n");
+  assert.equal(traceWith("features/acceptance.rs", rust("world.shows(title).await;")).status, 0);
+  const result = traceWith("features/acceptance.rs", rust(""));
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /definition does nothing/);
+});

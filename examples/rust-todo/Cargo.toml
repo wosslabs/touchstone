@@ -1,0 +1,19 @@
+[package]
+name = "touchstone-rust-todo"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+serde_json = "1"
+tiny_http = "0.12"
+
+[dev-dependencies]
+cucumber = "0.21"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+ureq = "2"
+
+# Acceptance scenarios: features/*.feature run by features/acceptance.rs.
+[[test]]
+name = "acceptance"
+path = "features/acceptance.rs"
+harness = false
