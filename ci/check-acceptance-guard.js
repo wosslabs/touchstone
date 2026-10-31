@@ -12,6 +12,9 @@ const SKIP = new RegExp(
     "\\bdescribe\\.skip\\b",
     "\\bxit\\s*\\(",
     "\\bxdescribe\\s*\\(",
+    "\\b(?:test|it|describe)\\.only\\b",
+    "\\bf(?:it|describe)\\s*\\(",
+    "\\b(?:test|it)\\.todo\\b",
     "pytest\\.mark\\.skip",
     "@skip\\b",
     "@wip\\b",
@@ -88,6 +91,23 @@ function behaviorLines(text) {
   return lines;
 }
 
+function droppedLines(before, after) {
+  const remaining = new Map();
+  for (const line of after) {
+    remaining.set(line, (remaining.get(line) || 0) + 1);
+  }
+  const dropped = [];
+  for (const line of before) {
+    const count = remaining.get(line) || 0;
+    if (count > 0) {
+      remaining.set(line, count - 1);
+    } else {
+      dropped.push(line);
+    }
+  }
+  return dropped;
+}
+
 function markerCount(text) {
   return (text.match(new RegExp(`^\\s*${ALLOW_DROP}`, "gm")) || []).length;
 }
@@ -136,15 +156,21 @@ function main() {
   }
   const beforeText = exampleText(cwd, base);
   const afterText = exampleText(cwd, "HEAD");
-  const before = behaviorLines(beforeText).length;
-  const after = behaviorLines(afterText).length;
+  const beforeLines = behaviorLines(beforeText);
+  const afterLines = behaviorLines(afterText);
+  const before = beforeLines.length;
+  const after = afterLines.length;
   if (before === 0 && after === 0) {
     console.log("acceptance guard: no behavior sentences yet");
     return 0;
   }
   const failures = [];
-  if (after < before && markerCount(afterText) <= markerCount(beforeText)) {
-    failures.push(`behavior sentences dropped from ${before} to ${after} in stories`);
+  const dropped = droppedLines(beforeLines, afterLines);
+  const allowed = Math.max(0, markerCount(afterText) - markerCount(beforeText));
+  if (dropped.length > allowed) {
+    failures.push(
+      `behavior sentences dropped or reworded in stories (${dropped.length} removed, ${allowed} allowed):\n${dropped.join("\n")}`,
+    );
   }
   const skips = addedSkipLines(cwd, base);
   if (skips.length) {

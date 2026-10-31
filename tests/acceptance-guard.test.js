@@ -103,3 +103,27 @@ test("a missing base fails", () => {
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("fails when a sentence is reworded", () => {
+  const repo = repoWithExample();
+  try {
+    commitFile(repo, "stories/pay.md", example.replace("is not charged", "sees a message"), "reword the charge sentence");
+    const result = runGuard(repo, ["--base", "HEAD~1"]);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /the customer is not charged/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("fails when a test is focused", () => {
+  const repo = repoWithExample();
+  try {
+    commitFile(repo, "src/pay.test.js", "test.only('pays', () => {})\n", "focus a test");
+    const result = runGuard(repo, ["--base", "HEAD~1"]);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /test\.only/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});

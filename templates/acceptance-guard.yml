@@ -1,7 +1,8 @@
 # Copy this file to .github/workflows/acceptance-guard.yml
 # `npx @wosslabs/touchstone init` does that.
-# The action runs the sentence guard, the trace check, and posts the trace
-# on the pull request. Node.js is available on GitHub-hosted runners.
+# The action runs the sentence guard, the trace check, the acceptance command,
+# and posts the trace on the pull request. The command lives here, in a
+# protected file, so an agent cannot redefine what passing means. Node.js is available on GitHub-hosted runners.
 # The workflow needs permission to write a pull request comment.
 name: Acceptance guard
 
@@ -19,6 +20,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
       - uses: wosslabs/touchstone@v1
         with:
+          command: npm run acceptance
           base: ${{ github.event.pull_request.base.sha }}

@@ -73,3 +73,10 @@ test("an unknown payload is allowed", () => {
   const decision = decide({ unrelated: true });
   assert.equal(decision.permission, "allow");
 });
+
+test("denies a write to CODEOWNERS and the hook config", () => {
+  for (const file_path of ["CODEOWNERS", ".github/CODEOWNERS", ".claude/settings.json", ".cursor/hooks/protect-acceptance.js"]) {
+    const decision = decide({ tool_name: "Write", tool_input: { file_path } });
+    assert.equal(decision.permission, "deny", file_path);
+  }
+});
