@@ -262,6 +262,14 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 
 Step definitions are found by scanning `features/` and `src/test/` for `.js`, `.ts`, `.py`, `.java`, and `.kt` files. If a feature exists and no definition is found, the trace fails instead of passing silently. Cucumber-JVM `@Given/@When/@Then` annotations bind the same way.
 
+## JVM projects
+
+`examples/jvm-todo` is a Spring Boot application with Cucumber-JVM. Features sit in `features/`, step definitions in `src/test/java`, and the steps call the running service over HTTP. `npm test` does not run it. From that folder, `mvn test` runs the scenarios. `templates/acceptance-guard-jvm.yml` is the matching workflow, including a `red-command` that filters by `cucumber.filter.name` and writes Cucumber messages. The example uses an in-memory store, so it has no database and no Testcontainers. Add Testcontainers where your system has a real database.
+
+## Held-back scenarios
+
+`templates/holdout-workflow.yml` shows how to run scenarios from a private repository with a read-only deploy key, through the `holdout-command` input. It is a starting point and has not been run on GitHub Actions.
+
 ## Check that agents follow the skills
 
 `npm test` proves the guards work. It does not prove an agent follows the skills. `npm run eval` starts real `claude -p` sessions with this plugin loaded, each on a fresh copy of `examples/todo`, then checks what the agent changed: stories untouched, nothing written outside `drafts/` when it should stop after drafting, injected instructions in a file ignored. It costs money (`--budget` caps each case, default 1.00 USD) and results vary between runs, so run it on purpose and read `evals/results/*.jsonl` when a case fails. `--runs 5` repeats each case and prints a pass rate, because one run is an anecdote. Headless `acceptEdits` does not auto-approve shell commands, so Claude Code permissions can block a shortcut before Touchstone sees it; to measure the skills and hook alone, use `--permission-mode bypassPermissions` in a disposable sandbox. `node evals/run.js --dry` prints the commands without calling the model. Cases live in `evals/cases/`. Only Claude Code is covered so far, not Cursor.

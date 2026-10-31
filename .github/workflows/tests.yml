@@ -18,3 +18,21 @@ jobs:
         uses: ./
         with:
           comment: "false"
+  jvm-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: examples/jvm-todo/pom.xml
+      - name: Run the JVM example scenarios
+        working-directory: examples/jvm-todo
+        run: mvn -B test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Trace the JVM example
+        run: node ci/check-trace.js --repo examples/jvm-todo

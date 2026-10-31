@@ -1,0 +1,33 @@
+# Held-back scenarios: acceptance cases the agent never sees.
+# NOT TESTED ON GITHUB ACTIONS. Treat this as a starting point.
+#
+# How it works
+# - The scenarios live in a PRIVATE repository, for example your-org/app-holdouts.
+# - A read-only deploy key for that repository is stored as the secret
+#   HOLDOUT_DEPLOY_KEY. The key never appears in the application repository or
+#   in the agent's environment.
+# - CI checks the private repository out next to the application and runs it
+#   against the same running system. A failure tells you the agent matched the
+#   visible examples without generalizing the rule.
+#
+# Limits
+# - Secrets are not available to pull requests from forks. Run this on branches
+#   of the same repository.
+# - Keep the holdouts out of CODEOWNERS paths the agent can read. The workflow
+#   file is protected like the other pipeline files.
+# - Holdouts are not traced to stories/. They test the rules the stories imply.
+#
+# Add to the guard job, after the checkout step:
+#
+#      - name: Fetch held-back scenarios
+#        uses: actions/checkout@v4
+#        with:
+#          repository: YOUR_ORG/YOUR_APP-holdouts
+#          ssh-key: ${{ secrets.HOLDOUT_DEPLOY_KEY }}
+#          path: holdouts
+#          persist-credentials: false
+#      - uses: wosslabs/touchstone@v1
+#        with:
+#          base: ${{ github.event.pull_request.base.sha }}
+#          command: npx cucumber-js --strict
+#          holdout-command: npx cucumber-js --strict --config holdouts/cucumber.js
