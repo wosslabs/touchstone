@@ -4,9 +4,11 @@
 # and posts the trace on the pull request. The command lives here, in a
 # protected file, so an agent cannot redefine what passing means.
 # red-command runs each new or changed scenario against the base production
-# code. It must fail at a Then step. A scenario that passes, or fails because a
-# step is undefined or a Given could not run, is not a valid red. The command
-# must write Cucumber messages to $TOUCHSTONE_MESSAGES so the check can tell.
+# code. It must fail because the behavior is missing, then pass with the pull
+# request code. A scenario that passes at the base, or fails because a step is
+# undefined, a Given could not run, or the test code is broken, is not a valid
+# red. The command must write Cucumber messages to $TOUCHSTONE_MESSAGES so the
+# check can tell.
 # The commands are written here, not as npm scripts, because package.json is
 # something a pull request can edit. Node.js is available on GitHub-hosted runners.
 # The workflow needs permission to write a pull request comment.
