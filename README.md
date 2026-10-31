@@ -24,7 +24,7 @@ It runs in Claude Code, Cursor, and any agent that reads a `SKILL.md` file, incl
 The example application already traces two sentences to Cucumber and Playwright. From a clone of this repository:
 
 ```bash
-cd examples/todo
+cd examples/web-todo
 npm install
 npx playwright install chromium
 node ../../ci/check-trace.js --repo .
@@ -258,7 +258,7 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 2. Run the same checks on a laptop that the pull request runs: `npx @wosslabs/touchstone check` (trace), `guard --base <sha>` (approved sentences), and `red --base <sha> --command ...` (red before green). The checks parse Gherkin with `@cucumber/gherkin`, so they ship in the package instead of being copied into your repository.
 3. Copy `templates/acceptance-guard.yml` to `.github/workflows/acceptance-guard.yml`. The workflow calls `wosslabs/touchstone@v1`, which runs both checks and posts the trace as a pull request comment. Tag `v1` on this repository before that workflow can succeed. Give the workflow permission to write pull request comments.
 4. Copy the paths in `templates/CODEOWNERS` into the application's `CODEOWNERS`. Replace `@YOUR_GITHUB_ORG/YOUR_TEAM` with the people who may change behavior sentences and the pipeline. Turn on branch protection so those paths require a review from that team.
-5. Add Cucumber and Playwright to the application. The acceptance script is `npm run acceptance`, and it runs `cucumber-js`. Commit `package-lock.json` so the pipeline installs the same versions. Unit tests stay in the application's own test tool. Cucumber is the acceptance layer. Playwright drives a web screen, as in `examples/todo`. An HTTP step calls the running service. A mobile step runs Maestro and reads the visible text. The feature file does not name the driver. The trace still names the file that defines the step.
+5. Add Cucumber and Playwright to the application. The acceptance script is `npm run acceptance`, and it runs `cucumber-js`. Commit `package-lock.json` so the pipeline installs the same versions. Unit tests stay in the application's own test tool. Cucumber is the acceptance layer. Playwright drives a web screen, as in `examples/web-todo`. An HTTP step calls the running service. A mobile step runs Maestro and reads the visible text. The feature file does not name the driver. The trace still names the file that defines the step.
 
 Stories and features are parsed with the official `@cucumber/gherkin` parser, so Background, Rule, tags, data tables, doc strings, and Examples are all compared. A story that is not valid Gherkin fails the trace. Step definitions are found by scanning `features/` and `src/test/` for `.js`, `.ts`, `.py`, `.java`, and `.kt` files. If a feature exists and no definition is found, the trace fails instead of passing silently. Cucumber-JVM `@Given/@When/@Then` annotations bind the same way.
 
@@ -268,7 +268,7 @@ Every example is the same small todo list with the same approved story, so you c
 
 | Folder | Application | Cucumber runner | Red check reads the failure reason |
 | --- | --- | --- | --- |
-| `examples/todo` | Node, browser screen | cucumber-js + Playwright | yes |
+| `examples/web-todo` | Node, browser screen | cucumber-js + Playwright | yes |
 | `examples/typescript-todo` | TypeScript HTTP service | cucumber-js | yes |
 | `examples/jvm-todo` | Spring Boot 4 | Cucumber-JVM, own source set | yes |
 | `examples/python-todo` | Python `http.server` | behave | no |
@@ -288,7 +288,7 @@ Runners that cannot write Cucumber messages use `red-reason-unchecked: "true"`. 
 
 ## Check that agents follow the skills
 
-`npm test` proves the guards work. It does not prove an agent follows the skills. `npm run eval` starts real `claude -p` sessions with this plugin loaded, each on a fresh copy of `examples/todo`, then checks what the agent changed: stories untouched, nothing written outside `drafts/` when it should stop after drafting, injected instructions in a file ignored. It costs money (`--budget` caps each case, default 1.00 USD) and results vary between runs, so run it on purpose and read `evals/results/*.jsonl` when a case fails. `--runs 5` repeats each case and prints a pass rate, because one run is an anecdote. Headless `acceptEdits` does not auto-approve shell commands, so Claude Code permissions can block a shortcut before Touchstone sees it; to measure the skills and hook alone, use `--permission-mode bypassPermissions` in a disposable sandbox. `node evals/run.js --dry` prints the commands without calling the model. Cases live in `evals/cases/`. Only Claude Code is covered so far, not Cursor.
+`npm test` proves the guards work. It does not prove an agent follows the skills. `npm run eval` starts real `claude -p` sessions with this plugin loaded, each on a fresh copy of `examples/web-todo`, then checks what the agent changed: stories untouched, nothing written outside `drafts/` when it should stop after drafting, injected instructions in a file ignored. It costs money (`--budget` caps each case, default 1.00 USD) and results vary between runs, so run it on purpose and read `evals/results/*.jsonl` when a case fails. `--runs 5` repeats each case and prints a pass rate, because one run is an anecdote. Headless `acceptEdits` does not auto-approve shell commands, so Claude Code permissions can block a shortcut before Touchstone sees it; to measure the skills and hook alone, use `--permission-mode bypassPermissions` in a disposable sandbox. `node evals/run.js --dry` prints the commands without calling the model. Cases live in `evals/cases/`. Only Claude Code is covered so far, not Cursor.
 
 The workflow compares the pull request with its base commit. It fails the pull request when a line in `stories/` is removed or reworded without a `Touchstone-Allow-Drop:` line, when the Cucumber feature no longer matches those sentences, when a skipped, focused (`.only`), or pending test is added, when a new or changed scenario passes against the base production code, or fails for the wrong reason such as an undefined step or a failing Given (the `red-command` check, which reads Cucumber messages from `$TOUCHSTONE_MESSAGES`), or when the `command` input (`npm run acceptance` in the template) fails. The optional `holdout-command` input runs scenarios kept outside the repository, such as in a private repository fetched with a secret the agent cannot read, so the agent cannot tune its code to the examples it can see. The command is set in the workflow file, which the hook and CODEOWNERS protect.
 
@@ -324,7 +324,7 @@ Every approved scenario has to appear, with the same lines, in a Cucumber featur
 | `ci/check-red-green.js` | Fails a merge when a new or changed scenario already passes against the base production code |
 | `action.yml` | The GitHub Action other repositories run with `uses: wosslabs/touchstone@v1` |
 | `cli/touchstone.js` | `init` for a new application, published as `@wosslabs/touchstone` |
-| `examples/todo` | A small application whose sentences, features, and Playwright steps already trace |
+| `examples/web-todo` | A small web page whose sentences, features, and Playwright browser steps already trace |
 | `templates/` | Workflow, code owners, and Cursor hook files to copy into an application |
 | `tests/` | Tests for the hook, both checks, and init |
 
