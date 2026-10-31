@@ -206,7 +206,6 @@ test("binds steps defined in Cucumber-JVM", () => {
   const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
   try {
     write(root, "stories/add-a-task.md", example);
-    write(root, "src/test/resources/features/add-a-task.feature", feature);
     write(root, "features/add-a-task.feature", feature);
     write(root, "src/test/java/app/TaskSteps.java", [
       "public class TaskSteps {",
