@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { changes, evaluate, finalText, snapshot, toolWrites } from "../evals/checks.js";
+import { changes, evaluate, finalText, snapshot, testBeforeCode, toolWrites } from "../evals/checks.js";
 
 const none = { added: [], modified: [], removed: [] };
 
@@ -77,4 +77,18 @@ test("final text is taken from the result event", () => {
 test("a required change that never happened fails", () => {
   assert.equal(evaluate({ mustChange: ["server.js"] }, none, "").length, 1);
   assert.deepEqual(evaluate({ mustChange: ["server.js"] }, { ...none, modified: ["server.js"] }, ""), []);
+});
+
+test("production code written before any test run fails", () => {
+  const write = (path) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "Write", input: { file_path: path } }] } });
+  const run = (command) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { command } }] } });
+  const early = transcriptOf(write("/w/server.js"), run("npx cucumber-js"));
+  const late = transcriptOf(run("npx cucumber-js --strict"), write("/w/server.js"), run("npx cucumber-js"));
+  const never = transcriptOf(write("/w/server.js"));
+  const onlyFeatures = transcriptOf(write("/w/features/steps.js"), run("npx cucumber-js"));
+  assert.match(testBeforeCode(early), /before the first test run/);
+  assert.match(testBeforeCode(never), /never ran/);
+  assert.equal(testBeforeCode(late), "");
+  assert.equal(testBeforeCode(onlyFeatures), "");
+  assert.equal(evaluate({ testBeforeCode: true }, none, early).length, 1);
 });
