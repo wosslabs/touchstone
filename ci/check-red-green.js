@@ -78,7 +78,43 @@ function overlayHead(repo, work) {
   }
 }
 
+// Errors that mean the test code or its environment is broken, not that the
+// behavior is missing.
+const PROGRAMMING_ERROR = new RegExp(
+  [
+    "ReferenceError",
+    "TypeError",
+    "SyntaxError",
+    "NoSuchMethod(?:Error|Exception)",
+    "NoSuchField(?:Error|Exception)",
+    "ClassNotFoundException",
+    "NoClassDefFoundError",
+    "LinkageError",
+    "cannot find symbol",
+    "compilation (?:error|failure)",
+    "ModuleNotFoundError",
+    "ImportError",
+    "AttributeError",
+    "NameError",
+    "ECONNREFUSED",
+    "Connection refused",
+    "ConnectException",
+    "is not a function",
+    "Cannot read propert",
+    "undefined reference",
+    "panicked at .*(?:index out of bounds|unwrap\\(\\) on a `None`)",
+  ].join("|"),
+  "i",
+);
+
+function errorText(result) {
+  return [result.exception?.type, result.exception?.message, result.message].filter(Boolean).join(" ");
+}
+
 // Reads Cucumber message output. Returns why the run is not a valid red, or "".
+// Valid: a When or Then step fails with an assertion-style error (a missing
+// element, a 404, a wrong value), and nothing is undefined, pending, ambiguous,
+// or broken by a programming error.
 export function classifyRed(text) {
   const stepTypes = new Map();
   const testSteps = new Map();
@@ -97,23 +133,29 @@ export function classifyRed(text) {
       testSteps.set(step.id, step.pickleStepId || "");
     }
     if (message.testStepFinished) {
-      results.push([message.testStepFinished.testStepId, message.testStepFinished.testStepResult?.status]);
+      results.push([message.testStepFinished.testStepId, message.testStepFinished.testStepResult || {}]);
     }
   }
   if (results.length === 0) {
     return "no scenario ran, so nothing failed for the right reason";
   }
-  const broken = results.filter(([, status]) => ["UNDEFINED", "PENDING", "AMBIGUOUS"].includes(status));
+  const broken = results.filter(([, result]) => ["UNDEFINED", "PENDING", "AMBIGUOUS"].includes(result.status));
   if (broken.length) {
-    return `a step is ${broken[0][1].toLowerCase()}: that is a programming error, not missing behavior`;
+    return `a step is ${broken[0][1].status.toLowerCase()}: that is a programming error, not missing behavior`;
   }
-  const failed = results.filter(([, status]) => status === "FAILED");
+  const failed = results.filter(([, result]) => result.status === "FAILED");
   if (failed.length === 0) {
     return "no step failed";
   }
-  const early = failed.filter(([id]) => stepTypes.get(testSteps.get(id)) !== "Outcome");
-  if (early.length) {
-    return "a Given, When, or hook step failed: the system could not reach the behavior, which is a setup error, not missing behavior";
+  for (const [id, result] of failed) {
+    const type = stepTypes.get(testSteps.get(id));
+    if (type !== "Action" && type !== "Outcome") {
+      return "a Given or hook step failed: the system could not reach the starting state, which is a setup error, not missing behavior";
+    }
+    const text = errorText(result);
+    if (PROGRAMMING_ERROR.test(text)) {
+      return `a step failed with a programming or environment error, not missing behavior: ${text.split("\n")[0].slice(0, 160)}`;
+    }
   }
   return "";
 }
@@ -174,8 +216,26 @@ function main() {
     git(repo, ["worktree", "remove", "--force", work]);
     rmSync(work, { recursive: true, force: true });
   }
+  if (!anyFailure && failures.length === 0) {
+    const head = mkdtempSync(join(tmpdir(), "touchstone-green-"));
+    try {
+      for (const title of changed) {
+        console.log(`red check: "${title}" must pass against the pull request code`);
+        const result = run(command, repo, {
+          TOUCHSTONE_SCENARIO: titlePattern(title),
+          TOUCHSTONE_SCENARIO_TITLE: title,
+          TOUCHSTONE_MESSAGES: join(head, "messages.ndjson"),
+        });
+        if (result.status !== 0) {
+          failures.push(`${title}: fails against the pull request code too, so it never went green`);
+        }
+      }
+    } finally {
+      rmSync(head, { recursive: true, force: true });
+    }
+  }
   if (failures.length) {
-    console.log("red check failed: each new or changed scenario must fail at a Then step because the behavior is missing:");
+    console.log("red check failed: each new or changed scenario must fail because the behavior is missing, then pass with the pull request code:");
     for (const title of failures) {
       console.log(`- ${title}`);
     }
@@ -185,6 +245,6 @@ function main() {
   return 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main());
 }
