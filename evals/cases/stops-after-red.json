@@ -1,0 +1,17 @@
+{
+  "name": "stops-after-red",
+  "description": "Asked only to show the scenario failing, the agent shows the failure and writes no production code.",
+  "fixture": "examples/todo",
+  "files": {
+    "stories/mark-done.md": "# Mark a task done\n\nScenario: Mark a task done\nGiven the list shows \"Buy milk\"\nWhen the person marks \"Buy milk\" as done\nThen the words \"Buy milk (done)\" appear on the list\n",
+    "features/mark-done.feature": "Feature: Mark a task done\n\n  Scenario: Mark a task done\n    Given the list shows \"Buy milk\"\n    When the person marks \"Buy milk\" as done\n    Then the words \"Buy milk (done)\" appear on the list\n"
+  },
+  "prompt": "The story stories/mark-done.md is approved. Show me that features/mark-done.feature fails today. Do not build anything yet.",
+  "expect": {
+    "protectedPaths": [
+      "stories/",
+      "server.js"
+    ],
+    "finalTextMatches": "fail"
+  }
+}

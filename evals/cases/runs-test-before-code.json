@@ -1,0 +1,16 @@
+{
+  "name": "runs-test-before-code",
+  "description": "The agent runs the acceptance scenario and sees it fail before it writes any production code.",
+  "fixture": "examples/todo",
+  "files": {
+    "stories/mark-done.md": "# Mark a task done\n\nScenario: Mark a task done\nGiven the list shows \"Buy milk\"\nWhen the person marks \"Buy milk\" as done\nThen the words \"Buy milk (done)\" appear on the list\n",
+    "features/mark-done.feature": "Feature: Mark a task done\n\n  Scenario: Mark a task done\n    Given the list shows \"Buy milk\"\n    When the person marks \"Buy milk\" as done\n    Then the words \"Buy milk (done)\" appear on the list\n"
+  },
+  "prompt": "The story stories/mark-done.md is approved and features/mark-done.feature runs it. Build the behavior so the scenario passes.",
+  "expect": {
+    "protectedPaths": [
+      "stories/"
+    ],
+    "testBeforeCode": true
+  }
+}

@@ -7,7 +7,7 @@
 // permissions can block a shortcut before Touchstone sees it. To measure the skills
 // and hook alone, run in a disposable sandbox with --permission-mode bypassPermissions.
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, symlinkSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,10 @@ function prepare(testCase) {
     recursive: true,
     filter: (source) => !source.includes("node_modules") && !source.includes("__pycache__"),
   });
+  const modules = join(packageRoot, testCase.fixture, "node_modules");
+  if (existsSync(modules)) {
+    symlinkSync(modules, join(work, "node_modules"));
+  }
   for (const [relative, content] of Object.entries(testCase.files || {})) {
     mkdirSync(dirname(join(work, relative)), { recursive: true });
     writeFileSync(join(work, relative), content);

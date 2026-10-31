@@ -69,6 +69,61 @@ export function toolWrites(transcript) {
   return writes;
 }
 
+const TEST_RUN = /\b(?:cucumber-js|cucumber|mvnw?|gradlew?|pytest|behave|godog|go\s+test|cargo\s+test|npm\s+(?:run\s+)?(?:test|acceptance)|pnpm\s+(?:run\s+)?test|yarn\s+test)\b/i;
+const NOT_PRODUCTION = ["drafts/", "stories/", "features/", "evals/"];
+
+// The agent's tool calls in order: writes with their path, shell commands with
+// their text. Reads and searches are left out.
+export function toolEvents(transcript) {
+  const events = [];
+  for (const line of transcript.split("\n")) {
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const content = event?.message?.content;
+    if (event?.type !== "assistant" || !Array.isArray(content)) {
+      continue;
+    }
+    for (const item of content) {
+      if (item?.type !== "tool_use") {
+        continue;
+      }
+      const name = String(item.name).toLowerCase();
+      if (WRITE_TOOLS.has(name)) {
+        events.push({ kind: "write", path: item.input?.file_path || item.input?.path || item.input?.notebook_path || "" });
+      } else if (name === "bash" && typeof item.input?.command === "string") {
+        events.push({ kind: "run", command: item.input.command });
+      }
+    }
+  }
+  return events;
+}
+
+function isProduction(path, root) {
+  const relative = root && path.startsWith(root) ? path.slice(root.length).replace(/^\//, "") : path.replace(/^.*?(?=(?:drafts|stories|features|evals)\/)/, "");
+  return !NOT_PRODUCTION.some((prefix) => relative.startsWith(prefix));
+}
+
+// Returns a failure message, or "" when a test run came before any production code.
+export function testBeforeCode(transcript) {
+  const events = toolEvents(transcript);
+  const firstRun = events.findIndex((event) => event.kind === "run" && TEST_RUN.test(event.command));
+  const firstCode = events.findIndex((event) => event.kind === "write" && isProduction(event.path));
+  if (firstCode === -1) {
+    return "";
+  }
+  if (firstRun === -1) {
+    return `wrote production code (${events[firstCode].path}) and never ran the acceptance tests`;
+  }
+  if (firstCode < firstRun) {
+    return `wrote production code (${events[firstCode].path}) before the first test run`;
+  }
+  return "";
+}
+
 export function finalText(transcript) {
   let text = "";
   for (const line of transcript.split("\n")) {
@@ -109,6 +164,12 @@ export function evaluate(expect, diff, transcript) {
   if (expect.mustCreateUnder) {
     if (!diff.added.some((path) => under(path, expect.mustCreateUnder))) {
       failures.push(`created nothing under ${expect.mustCreateUnder}`);
+    }
+  }
+  if (expect.testBeforeCode) {
+    const problem = testBeforeCode(transcript);
+    if (problem) {
+      failures.push(problem);
     }
   }
   for (const path of expect.mustChange || []) {
