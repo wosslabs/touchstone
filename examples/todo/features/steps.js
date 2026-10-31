@@ -40,17 +40,26 @@ async function expectOnList(page, title) {
 }
 
 BeforeAll(async function () {
-  server = spawn("node", ["server.js"], { stdio: "ignore" });
-  await waitForScreen();
   browser = await chromium.launch({ headless: true });
 });
 
 AfterAll(async function () {
   await browser?.close();
-  server?.kill();
 });
 
+async function stopServer() {
+  if (!server) {
+    return;
+  }
+  const exited = new Promise((resolve) => server.once("exit", resolve));
+  server.kill();
+  await exited;
+  server = null;
+}
+
 Before(async function () {
+  server = spawn("node", ["server.js"], { stdio: "ignore" });
+  await waitForScreen();
   this.page = await browser.newPage();
 });
 
@@ -68,6 +77,7 @@ BeforeStep(function ({ pickleStep, gherkinDocument }) {
 
 After(async function () {
   await this.page.close();
+  await stopServer();
 });
 
 Given("the list has no tasks", async function () {
