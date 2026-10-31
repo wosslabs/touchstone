@@ -5,9 +5,10 @@ import { join, relative, resolve } from "node:path";
 const SCENARIO = /^Scenario(?: Outline)?:\s*(.+)$/;
 const STEP = /^(Given|When|Then|And|But)\s+(.+)$/;
 const EXAMPLES = /^(?:Examples|Scenarios):/;
-const SCRIPT_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx"];
+const SCRIPT_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt"];
 const DEFINITION = /(?:Given|When|Then|defineStep|given|when|then)\s*\(\s*(['"`])([\s\S]*?)\1|@(?:given|when|then|step)\(\s*(['"])([\s\S]*?)\3/g;
-const STEP_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".py"];
+const STEP_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".java", ".kt"];
+const STEP_ROOTS = ["features", "src/test"];
 const CUCUMBER_TYPES = {
   string: '(?:"[^"]*"|\'[^\']*\')',
   int: "-?\\d+",
@@ -124,6 +125,9 @@ function escapeRegExp(value) {
 }
 
 function expressionToRegex(expression) {
+  if (expression.startsWith("^")) {
+    return new RegExp(expression);
+  }
   const parts = [];
   let cursor = 0;
   while (cursor < expression.length) {
@@ -193,9 +197,9 @@ function isEmptyBody(text, from) {
 }
 
 function definitionsIn(root) {
-  const directory = join(root, "features");
   const found = [];
-  for (const path of walk(directory).sort()) {
+  const paths = STEP_ROOTS.flatMap((name) => walk(join(root, name)).sort());
+  for (const path of paths) {
     const text = readFileSync(path, "utf8");
     for (const match of text.matchAll(DEFINITION)) {
       const empty = SCRIPT_SUFFIXES.some((suffix) => path.endsWith(suffix)) && isEmptyBody(text, match.index + match[0].length);
@@ -279,6 +283,11 @@ function main() {
   const definitions = definitionsIn(root);
   const [traces, compared] = compare(examples, features, definitions);
   const failures = exampleDupes.concat(featureDupes, compared);
+  if (features.size > 0 && definitions.length === 0) {
+    failures.push(
+      `no step definitions found under ${STEP_ROOTS.join(" or ")} (.js, .ts, .py, .java, .kt), so no sentence can be traced to code`,
+    );
+  }
   if (examples.size === 0 && features.size === 0 && failures.length === 0) {
     console.log("trace: no approved scenarios");
     return 0;
