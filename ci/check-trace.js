@@ -4,9 +4,11 @@ import { join, relative, resolve } from "node:path";
 import { scenariosIn } from "./gherkin.js";
 
 const STEP = /^(Given|When|Then|And|But|\*)\s+(.+)$/;
-const SCRIPT_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt"];
-const DEFINITION = /(?:Given|When|Then|defineStep|given|when|then)\s*\(\s*(['"`])([\s\S]*?)\1|@(?:given|when|then|step)\(\s*(['"])([\s\S]*?)\3/g;
-const STEP_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".java", ".kt"];
+const SCRIPT_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt", ".go", ".rs"];
+// Groups: 1-2 JS/TS/Java/Kotlin, 3-4 Python decorators, 5-6 Go (godog) Step/Given/When/Then,
+// 7-8 Rust (cucumber-rs) attributes with expr = "..." or regex = "...".
+const DEFINITION = /(?:Given|When|Then|defineStep|given|when|then)\s*\(\s*(['"`])([\s\S]*?)\1|@(?:given|when|then|step)\(\s*(['"])([\s\S]*?)\3|\.(?:Step|Given|When|Then)\(\s*(['"`])([\s\S]*?)\5|#\[(?:given|when|then)\(\s*(expr|regex)\s*=\s*r?#*"([\s\S]*?)"#*\s*\)\]/g;
+const STEP_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".java", ".kt", ".go", ".rs"];
 const STEP_ROOTS = ["features", "src/test", "src/acceptanceTest"];
 const CUCUMBER_TYPES = {
   string: '(?:"[^"]*"|\'[^\']*\')',
@@ -138,11 +140,34 @@ function isEmptyBody(text, from) {
       depth -= 1;
       if (depth === 0) {
         const body = text.slice(open + 1, cursor).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
-        return /^(?:return(?:\s+(?:true|undefined|null))?\s*;?)?$/.test(body.trim());
+        return /^(?:return(?:\s+(?:true|undefined|null|nil))?\s*;?)?$/.test(body.trim());
       }
     }
   }
   return false;
+}
+
+// A Python step body is the indented block after the next "def" line. It does
+// nothing when it holds only pass, "...", return, comments, or a docstring.
+function isEmptyPythonBody(text, from) {
+  const lines = text.slice(from).split("\n");
+  const def = lines.findIndex((line) => /^\s*(?:async\s+)?def\s/.test(line));
+  if (def === -1) {
+    return false;
+  }
+  const indent = lines[def].match(/^\s*/)[0].length;
+  const body = [];
+  for (const line of lines.slice(def + 1)) {
+    if (line.trim() === "") {
+      continue;
+    }
+    if (line.match(/^\s*/)[0].length <= indent) {
+      break;
+    }
+    body.push(line.trim());
+  }
+  const meaningful = body.filter((line) => !line.startsWith("#") && !/^(?:pass|\.\.\.|return(?:\s+(?:None|True))?)$/.test(line) && !/^(?:"""|\'\'\').*(?:"""|\'\'\')$/.test(line));
+  return meaningful.length === 0;
 }
 
 function definitionsIn(root) {
@@ -151,8 +176,13 @@ function definitionsIn(root) {
   for (const path of paths) {
     const text = readFileSync(path, "utf8");
     for (const match of text.matchAll(DEFINITION)) {
-      const empty = SCRIPT_SUFFIXES.some((suffix) => path.endsWith(suffix)) && isEmptyBody(text, match.index + match[0].length);
-      found.push([posix(root, path), expressionToRegex(match[2] || match[4]), empty]);
+      const after = match.index + match[0].length;
+      const empty = path.endsWith(".py")
+        ? isEmptyPythonBody(text, after)
+        : SCRIPT_SUFFIXES.some((suffix) => path.endsWith(suffix)) && isEmptyBody(text, after);
+      const expression = match[2] || match[4] || match[6] || match[8];
+      const pattern = match[7] === "regex" ? new RegExp(`^${expression.replace(/^\^|\$$/g, "")}$`) : expressionToRegex(expression);
+      found.push([posix(root, path), pattern, empty]);
     }
   }
   return found;

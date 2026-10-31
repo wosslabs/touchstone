@@ -21,6 +21,10 @@ inputs:
     description: Comma-separated extra paths copied from the pull request onto the base checkout for the red check. features, stories, and src/acceptanceTest are always copied. Step definitions must live in these paths and must not depend on code the pull request adds.
     required: false
     default: ""
+  red-reason-unchecked:
+    description: Set to "true" for runners that cannot write Cucumber messages (godog, cucumber-rs, behave). The red check then accepts any failing run, and does not check the reason or the green run. Prefer a runner that writes messages.
+    required: false
+    default: "false"
   setup:
     description: Shell command that prepares the base checkout for the red check, for example "npm ci".
     required: false
@@ -71,7 +75,13 @@ runs:
         RED_COMMAND: ${{ inputs.red-command }}
         SETUP_COMMAND: ${{ inputs.setup }}
         OVERLAY: ${{ inputs.overlay }}
-      run: node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND" --overlay "$OVERLAY"
+        UNCHECKED: ${{ inputs.red-reason-unchecked }}
+      run: |
+        flags=()
+        if [ "$UNCHECKED" = "true" ]; then
+          flags+=(--any-failure)
+        fi
+        node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND" --overlay "$OVERLAY" "${flags[@]}"
     - name: Acceptance tests pass
       if: inputs.command != ''
       shell: bash

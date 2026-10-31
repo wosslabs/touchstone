@@ -39,3 +39,74 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Trace the JVM example
         run: node ci/check-trace.js --repo examples/jvm-todo
+  typescript-example:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/typescript-todo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck && npm test && npm run acceptance
+  python-example:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/python-todo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run --group dev python -m unittest discover -s tests
+      - run: uv run --group dev behave
+  go-example:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/golang-todo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: examples/golang-todo/go.sum
+      - run: go test ./...
+  rust-example:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/rust-todo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --lib && cargo test --test acceptance
+  mojo-example:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/mojo-todo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+      - uses: astral-sh/setup-uv@v5
+      - name: Build and test the Mojo program
+        run: |
+          pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo build src/todo.mojo -o build/todo
+          pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo run -I src tests/test_tasks.mojo
+      - run: uv run --group dev behave
+  trace-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --ignore-scripts
+      - name: Trace every example
+        run: |
+          for example in todo typescript-todo python-todo jvm-todo golang-todo rust-todo mojo-todo; do
+            echo "== $example"
+            node ci/check-trace.js --repo "examples/$example"
+          done

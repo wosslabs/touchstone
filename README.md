@@ -262,6 +262,22 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 
 Stories and features are parsed with the official `@cucumber/gherkin` parser, so Background, Rule, tags, data tables, doc strings, and Examples are all compared. A story that is not valid Gherkin fails the trace. Step definitions are found by scanning `features/` and `src/test/` for `.js`, `.ts`, `.py`, `.java`, and `.kt` files. If a feature exists and no definition is found, the trace fails instead of passing silently. Cucumber-JVM `@Given/@When/@Then` annotations bind the same way.
 
+## Examples by language
+
+Every example is the same small todo list with the same approved story, so you can compare how the acceptance layer looks in each stack. Steps talk to the running system only, and unit tests are kept apart from acceptance scenarios.
+
+| Folder | Application | Cucumber runner | Red check reads the failure reason |
+| --- | --- | --- | --- |
+| `examples/todo` | Node, browser screen | cucumber-js + Playwright | yes |
+| `examples/typescript-todo` | TypeScript HTTP service | cucumber-js | yes |
+| `examples/jvm-todo` | Spring Boot 4 | Cucumber-JVM, own source set | yes |
+| `examples/python-todo` | Python `http.server` | behave | no |
+| `examples/golang-todo` | Go `net/http` | godog | no |
+| `examples/rust-todo` | Rust `tiny_http` | cucumber-rs | no |
+| `examples/mojo-todo` | Mojo command line program | behave drives the binary | no |
+
+Runners that cannot write Cucumber messages use `red-reason-unchecked: "true"`. The red check then proves a new scenario fails before the code exists, but cannot tell an assertion failure from a programming error. Each folder has a README with its commands and workflow. The red check was run against real output for the Node, JVM and Go examples. The Python, Rust, TypeScript and Mojo workflows are untested in CI, and the CI jobs for these examples have not run on GitHub yet.
+
 ## JVM projects
 
 `examples/jvm-todo` is a Spring Boot application with Cucumber-JVM. Features sit in `features/`. Acceptance steps sit in their own source set, `src/acceptanceTest/java`, run by Failsafe, and call the running service over HTTP only. Unit tests stay in `src/test/java`. The split matters for the red check: it puts the pull request's `features/`, `stories/` and `src/acceptanceTest/` onto the base commit, and unit tests that reference new production code would not compile there. `npm test` does not run the example. From that folder, `./mvnw verify` runs everything and `./mvnw verify -DskipUnitTests=true` runs only the scenarios. `templates/acceptance-guard-jvm.yml` is the matching workflow, including a `red-command` that filters by `cucumber.filter.name` and writes Cucumber messages. The Maven wrapper pins the Maven version, and `pom.xml`, `mvnw` and `.mvn/` are in the CODEOWNERS template so a pull request cannot set `testFailureIgnore` unreviewed. The example uses an in-memory store, so it has no database and no Testcontainers. Add Testcontainers where your system has a real database.

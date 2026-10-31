@@ -1,0 +1,10 @@
+# Mojo has no Cucumber runner. Behave (Python) runs the scenarios and drives the
+# compiled Mojo program as a black box, the way a person at a terminal would.
+[project]
+name = "touchstone-mojo-todo"
+version = "0.0.1"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["behave>=1.2.6"]
