@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import { scenariosIn } from "./gherkin.js";
 
-const SCENARIO = /^Scenario(?: Outline)?:\s*(.+)$/;
-const STEP = /^(Given|When|Then|And|But)\s+(.+)$/;
-const EXAMPLES = /^(?:Examples|Scenarios):/;
+const STEP = /^(Given|When|Then|And|But|\*)\s+(.+)$/;
 const SCRIPT_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt"];
 const DEFINITION = /(?:Given|When|Then|defineStep|given|when|then)\s*\(\s*(['"`])([\s\S]*?)\1|@(?:given|when|then|step)\(\s*(['"])([\s\S]*?)\3/g;
 const STEP_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".java", ".kt"];
@@ -30,71 +29,7 @@ function posix(root, path) {
   return relative(root, path).split("\\").join("/");
 }
 
-function normalizeRow(line) {
-  return `| ${line.split("|").slice(1, -1).map((cell) => cell.trim()).join(" | ")} |`;
-}
-
-function scenariosIn(text) {
-  const found = [];
-  let title = null;
-  let steps = [];
-  let inDocString = false;
-  let background = null;
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    if (line.startsWith('"""')) {
-      inDocString = !inDocString;
-      if (title !== null || background !== null) {
-        steps.push('"""');
-      }
-      continue;
-    }
-    if (inDocString) {
-      if (title !== null || background !== null) {
-        steps.push(`  ${line}`);
-      }
-      continue;
-    }
-    if (!line || line.startsWith("#") || line.startsWith("```")) {
-      continue;
-    }
-    if (/^Background:/.test(line)) {
-      if (title !== null) {
-        found.push([title, steps]);
-        title = null;
-      }
-      background = [];
-      steps = background;
-      continue;
-    }
-    const scenario = SCENARIO.exec(line);
-    if (scenario) {
-      if (title !== null) {
-        found.push([title, steps]);
-      }
-      title = scenario[1].trim();
-      steps = background ? [...background] : [];
-      continue;
-    }
-    if (title === null && background === null) {
-      continue;
-    }
-    const step = STEP.exec(line);
-    if (step) {
-      steps.push(`${step[1]} ${step[2].trim()}`);
-    } else if (line.startsWith("|") && line.endsWith("|")) {
-      steps.push(normalizeRow(line));
-    } else if (EXAMPLES.test(line)) {
-      steps.push(line);
-    }
-  }
-  if (title !== null) {
-    found.push([title, steps]);
-  }
-  return found;
-}
-
-function collect(root, directory, suffix) {
+function collect(root, directory, suffix, problems) {
   const rows = [];
   let names = [];
   try {
@@ -110,8 +45,12 @@ function collect(root, directory, suffix) {
     if (!statSync(path).isFile()) {
       continue;
     }
-    for (const [title, steps] of scenariosIn(readFileSync(path, "utf8"))) {
-      rows.push([title, posix(root, path), steps]);
+    try {
+      for (const [title, steps] of scenariosIn(readFileSync(path, "utf8"), { markdown: suffix === ".md" })) {
+        rows.push([title, posix(root, path), steps]);
+      }
+    } catch (error) {
+      problems.push(`${posix(root, path)} is not valid Gherkin: ${String(error.message).split("\n")[0]}`);
     }
   }
   return rows;
@@ -286,13 +225,14 @@ function compare(examples, features, definitions) {
 function main() {
   const root = resolve(option("--repo") || ".");
   const storiesDir = join(root, "stories");
-  const exampleRows = collect(root, storiesDir, ".md").concat(collect(root, storiesDir, ".feature"));
-  const featureRows = collect(root, join(root, "features"), ".feature");
+  const problems = [];
+  const exampleRows = collect(root, storiesDir, ".md", problems).concat(collect(root, storiesDir, ".feature", problems));
+  const featureRows = collect(root, join(root, "features"), ".feature", problems);
   const [examples, exampleDupes] = index(exampleRows);
   const [features, featureDupes] = index(featureRows);
   const definitions = definitionsIn(root);
   const [traces, compared] = compare(examples, features, definitions);
-  const failures = exampleDupes.concat(featureDupes, compared);
+  const failures = problems.concat(exampleDupes, featureDupes, compared);
   if (features.size > 0 && definitions.length === 0) {
     failures.push(
       `no step definitions found under ${STEP_ROOTS.join(" or ")} (.js, .ts, .py, .java, .kt), so no sentence can be traced to code`,

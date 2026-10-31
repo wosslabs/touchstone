@@ -10,6 +10,7 @@
     "cli/",
     "ci/check-acceptance-guard.js",
     "ci/check-trace.js",
+    "ci/gherkin.js",
     "ci/check-red-green.js",
     "hooks/protect-acceptance.js",
     "templates/"
@@ -25,5 +26,9 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@cucumber/gherkin": "42.0.1",
+    "@cucumber/messages": "34.2.1"
   }
 }

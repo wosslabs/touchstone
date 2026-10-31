@@ -32,6 +32,10 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install Touchstone checks
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
     - name: Fetch the base commit
       if: inputs.base != '' || github.event.pull_request.base.sha != ''
       shell: bash

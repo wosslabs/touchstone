@@ -132,7 +132,7 @@ The acceptance check uses two tools. [Cucumber](https://cucumber.io/) holds the 
 The agent copies your sentences into the feature file. It does not reword them to make the check easier. It also runs:
 
 ```bash
-node ci/check-trace.js
+npx @wosslabs/touchstone check
 ```
 
 That command prints one row for each scenario: the title, the approved example file, the Cucumber feature file, and the number of steps. It fails when a sentence has no scenario, a scenario has no approved sentence, a title is used twice, or the lines differ.
@@ -255,12 +255,12 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 `npx @wosslabs/touchstone init` does the first four steps. You still replace the team name and install the browser.
 
 1. Keep approved sentences in `stories/`. Markdown and `.feature` files both count. The agent may draft in `drafts/`. You copy a draft into `stories/` when it says what you mean.
-2. Copy `ci/check-acceptance-guard.js`, `ci/check-trace.js`, and `ci/check-red-green.js` into the application's `ci/` directory so a laptop can run the same checks as the pull request.
+2. Run the same checks on a laptop that the pull request runs: `npx @wosslabs/touchstone check` (trace), `guard --base <sha>` (approved sentences), and `red --base <sha> --command ...` (red before green). The checks parse Gherkin with `@cucumber/gherkin`, so they ship in the package instead of being copied into your repository.
 3. Copy `templates/acceptance-guard.yml` to `.github/workflows/acceptance-guard.yml`. The workflow calls `wosslabs/touchstone@v1`, which runs both checks and posts the trace as a pull request comment. Tag `v1` on this repository before that workflow can succeed. Give the workflow permission to write pull request comments.
 4. Copy the paths in `templates/CODEOWNERS` into the application's `CODEOWNERS`. Replace `@YOUR_GITHUB_ORG/YOUR_TEAM` with the people who may change behavior sentences and the pipeline. Turn on branch protection so those paths require a review from that team.
 5. Add Cucumber and Playwright to the application. The acceptance script is `npm run acceptance`, and it runs `cucumber-js`. Commit `package-lock.json` so the pipeline installs the same versions. Unit tests stay in the application's own test tool. Cucumber is the acceptance layer. Playwright drives a web screen, as in `examples/todo`. An HTTP step calls the running service. A mobile step runs Maestro and reads the visible text. The feature file does not name the driver. The trace still names the file that defines the step.
 
-Step definitions are found by scanning `features/` and `src/test/` for `.js`, `.ts`, `.py`, `.java`, and `.kt` files. If a feature exists and no definition is found, the trace fails instead of passing silently. Cucumber-JVM `@Given/@When/@Then` annotations bind the same way.
+Stories and features are parsed with the official `@cucumber/gherkin` parser, so Background, Rule, tags, data tables, doc strings, and Examples are all compared. A story that is not valid Gherkin fails the trace. Step definitions are found by scanning `features/` and `src/test/` for `.js`, `.ts`, `.py`, `.java`, and `.kt` files. If a feature exists and no definition is found, the trace fails instead of passing silently. Cucumber-JVM `@Given/@When/@Then` annotations bind the same way.
 
 ## JVM projects
 
