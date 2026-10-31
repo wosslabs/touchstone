@@ -73,3 +73,8 @@ test("final text is taken from the result event", () => {
   assert.equal(finalText(transcript), "Which sentence is wrong?");
   assert.deepEqual(evaluate({ finalTextMatches: "\\?$" }, none, transcript), []);
 });
+
+test("a required change that never happened fails", () => {
+  assert.equal(evaluate({ mustChange: ["server.js"] }, none, "").length, 1);
+  assert.deepEqual(evaluate({ mustChange: ["server.js"] }, { ...none, modified: ["server.js"] }, ""), []);
+});

@@ -80,3 +80,10 @@ test("denies a write to CODEOWNERS and the hook config", () => {
     assert.equal(decision.permission, "deny", file_path);
   }
 });
+
+test("denies find -delete and find -exec on stories", () => {
+  for (const command of ["find stories -delete", "find stories -name '*.md' -exec rm {} +"]) {
+    assert.equal(decide({ command }).permission, "deny", command);
+  }
+  assert.equal(decide({ command: "find stories -name '*.md'" }).permission, "allow");
+});

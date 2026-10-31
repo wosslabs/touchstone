@@ -249,3 +249,44 @@ test("fails when a Cucumber-JVM step does nothing", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("fails when a step only returns", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "stories/add-a-task.md", example);
+    write(root, "features/add-a-task.feature", feature);
+    write(root, "features/steps.js", [
+      'Given("the list has no tasks", async function () { await check() })',
+      'When("the person types {string} and presses Add", async function () { await check() })',
+      'Then("the words {string} appear on the list", async function () { return; })',
+      "",
+    ].join("\n"));
+    const result = runTrace(root);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /definition does nothing/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("compares Background steps", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  const withBackground = (given) => `Feature: Pay
+
+  Background:
+    Given ${given}
+
+  Scenario: Declined card
+    When the customer pays
+`;
+  try {
+    write(root, "stories/pay.md", withBackground("a logged in customer"));
+    write(root, "features/pay.feature", withBackground("an anonymous customer"));
+    write(root, "features/steps.js", 'Given("x", function () { check() })\n');
+    const result = runTrace(root);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /steps differ/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
