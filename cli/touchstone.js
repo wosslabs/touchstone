@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,18 +88,6 @@ function init(directory) {
   mkdirSync(join(directory, "drafts"), { recursive: true });
   mkdirSync(join(directory, "features"), { recursive: true });
   copyIfMissing(
-    join(packageRoot, "ci", "check-acceptance-guard.js"),
-    join(directory, "ci", "check-acceptance-guard.js"),
-  );
-  copyIfMissing(
-    join(packageRoot, "ci", "check-trace.js"),
-    join(directory, "ci", "check-trace.js"),
-  );
-  copyIfMissing(
-    join(packageRoot, "ci", "check-red-green.js"),
-    join(directory, "ci", "check-red-green.js"),
-  );
-  copyIfMissing(
     join(packageRoot, "templates", "acceptance-guard.yml"),
     join(directory, ".github", "workflows", "acceptance-guard.yml"),
   );
@@ -119,12 +108,23 @@ function init(directory) {
   if (features) {
     importFeatures(directory, resolve(features));
   }
-  console.log("Next: save the approved story in stories/, then run node ci/check-trace.js");
+  console.log("Next: save the approved story in stories/, then run npx @wosslabs/touchstone check");
 }
 
+const CHECKS = {
+  check: "check-trace.js",
+  guard: "check-acceptance-guard.js",
+  red: "check-red-green.js",
+};
+
 const command = process.argv[2];
+if (CHECKS[command]) {
+  const forwarded = process.argv.slice(3);
+  const result = spawnSync("node", [join(packageRoot, "ci", CHECKS[command]), ...forwarded], { stdio: "inherit" });
+  process.exit(result.status ?? 1);
+}
 if (command !== "init") {
-  console.error("usage: touchstone init [--dir path] [--features path]");
+  console.error("usage: touchstone init [--dir path] [--features path]\n       touchstone check [--repo path]\n       touchstone guard [--base sha] [--repo path]\n       touchstone red --base sha --command cmd [--setup cmd] [--repo path]");
   process.exit(1);
 }
 init(resolve(argument("--dir") || "."));

@@ -17,8 +17,7 @@ test("creates the acceptance layout", () => {
   try {
     const result = runInit(["--dir", root]);
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.equal(readFileSync(join(root, "ci", "check-trace.js"), "utf8").length > 0, true);
-    assert.equal(readFileSync(join(root, "ci", "check-acceptance-guard.js"), "utf8").length > 0, true);
+    assert.throws(() => readFileSync(join(root, "ci", "check-trace.js")));
     assert.match(readFileSync(join(root, ".github", "workflows", "acceptance-guard.yml"), "utf8"), /wosslabs\/touchstone@v1/);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -51,6 +50,17 @@ test("does not overwrite an approved workflow", () => {
     const result = runInit(["--dir", root]);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.equal(readFileSync(workflow, "utf8"), "name: kept\n");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("check runs the trace from the package", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-init-"));
+  try {
+    const result = spawnSync("node", [cli, "check", "--repo", root], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /no approved scenarios/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

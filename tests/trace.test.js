@@ -180,7 +180,7 @@ Examples:
 `;
   try {
     write(root, "stories/pay.md", outline("visa"));
-    write(root, "features/pay.feature", outline("amex"));
+    write(root, "features/pay.feature", `Feature: Pay\n\n${outline("amex")}`);
     const result = runTrace(root);
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stdout, /steps differ/);
@@ -286,6 +286,54 @@ test("compares Background steps", () => {
     const result = runTrace(root);
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stdout, /steps differ/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails when a story is not valid Gherkin", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "stories/bad.md", "# Bad\n\nScenario: Broken\nGiven a thing\nsome loose prose after steps\nWhen something\n");
+    write(root, "features/steps.js", 'Given("x", function () { check() })\n');
+    const result = runTrace(root);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /not valid Gherkin/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("compares tags, rules, tables, and doc strings", () => {
+  const body = (tag, cell, text) => `Feature: Pay
+
+  Rule: Cards
+    @${tag}
+    Scenario: Pay
+      Given a customer
+        | card |
+        | ${cell} |
+      When the customer says
+        """
+        ${text}
+        """
+`;
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "features/steps.js", [
+      'Given("a customer", function () { check() })',
+      'When("the customer says", function () { check() })',
+      "",
+    ].join("\n"));
+    write(root, "stories/pay.feature", body("smoke", "visa", "hello"));
+    write(root, "features/pay.feature", body("smoke", "visa", "hello"));
+    assert.equal(runTrace(root).status, 0);
+    for (const changed of [body("wip", "visa", "hello"), body("smoke", "amex", "hello"), body("smoke", "visa", "bye")]) {
+      write(root, "features/pay.feature", changed);
+      const result = runTrace(root);
+      assert.equal(result.status, 1, result.stdout);
+      assert.match(result.stdout, /steps differ/);
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

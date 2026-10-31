@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { scenariosIn } from "./gherkin.js";
 
 const OVERLAY = ["features", "stories", "src/test"];
-const HEADER = /^\s*Scenario(?: Outline)?:\s*(.+?)\s*$/;
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -26,52 +26,10 @@ function git(cwd, args) {
 
 function scenarioBlocks(text) {
   const blocks = new Map();
-  let title = null;
-  let lines = [];
-  const flush = () => {
-    if (title !== null) {
-      blocks.set(title, lines.join("\n"));
-    }
-  };
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    const header = HEADER.exec(line);
-    if (header) {
-      flush();
-      title = header[1];
-      lines = [];
-      continue;
-    }
-    if (/^(?:Feature|Rule|Background):/.test(line)) {
-      flush();
-      title = null;
-      continue;
-    }
-    if (title !== null && line && !line.startsWith("#")) {
-      lines.push(line.replace(/\s+/g, " "));
-    }
+  for (const [title, steps] of scenariosIn(text)) {
+    blocks.set(title, steps.join("\n"));
   }
-  flush();
   return blocks;
-}
-
-function featureFiles(directory, prefix = "features") {
-  let entries = [];
-  try {
-    entries = readdirSync(directory, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  const found = [];
-  for (const entry of entries) {
-    const path = `${prefix}/${entry.name}`;
-    if (entry.isDirectory() && entry.name !== "node_modules") {
-      found.push(...featureFiles(join(directory, entry.name), path));
-    } else if (entry.name.endsWith(".feature")) {
-      found.push(path);
-    }
-  }
-  return found.sort();
 }
 
 function blocksAt(cwd, rev) {
