@@ -34,7 +34,7 @@ function repoWithBase() {
 }
 
 function runRed(repo, command) {
-  return spawnSync("node", [script, "--repo", repo, "--base", "HEAD~1", "--command", command], { cwd: repo, encoding: "utf8" });
+  return spawnSync("node", [script, "--repo", repo, "--base", "HEAD~1", "--command", command, "--any-failure"], { cwd: repo, encoding: "utf8" });
 }
 
 test("passes when the new scenario fails before the code exists", () => {
@@ -82,6 +82,81 @@ test("passes the scenario title to the command", () => {
     commitFile(repo, "features/pay.feature", feature, "add the scenario");
     const result = runRed(repo, 'test "$TOUCHSTONE_SCENARIO" != "^Declined card$"');
     assert.equal(result.status, 0, result.stdout + result.stderr);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("puts the pull request scenarios on the base checkout even without a stories folder", () => {
+  const repo = repoWithBase();
+  try {
+    commitFile(repo, "features/pay.feature", feature, "add the scenario");
+    const result = runRed(repo, "test -f features/pay.feature");
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /passed against the base production code/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+function messages(...statuses) {
+  const lines = [
+    { pickle: { id: "p", steps: [{ id: "g", type: "Context" }, { id: "t", type: "Outcome" }] } },
+    { testCase: { id: "c", pickleId: "p", testSteps: [{ id: "tg", pickleStepId: "g" }, { id: "tt", pickleStepId: "t" }] } },
+    { testStepFinished: { testStepId: "tg", testStepResult: { status: statuses[0] } } },
+    { testStepFinished: { testStepId: "tt", testStepResult: { status: statuses[1] } } },
+  ];
+  return lines.map((line) => JSON.stringify(line)).join("\n");
+}
+
+function runClassified(repo, statuses) {
+  const body = messages(...statuses).replaceAll("'", "'\\''");
+  const command = `printf '%s\\n' '${body}' > "$TOUCHSTONE_MESSAGES"; false`;
+  return spawnSync("node", [script, "--repo", repo, "--base", "HEAD~1", "--command", command], { cwd: repo, encoding: "utf8" });
+}
+
+test("accepts a failure at a Then step as red", () => {
+  const repo = repoWithBase();
+  try {
+    commitFile(repo, "features/pay.feature", feature, "add the scenario");
+    const result = runClassified(repo, ["PASSED", "FAILED"]);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("rejects an undefined step as red", () => {
+  const repo = repoWithBase();
+  try {
+    commitFile(repo, "features/pay.feature", feature, "add the scenario");
+    const result = runClassified(repo, ["PASSED", "UNDEFINED"]);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /undefined/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("rejects a failing Given as red", () => {
+  const repo = repoWithBase();
+  try {
+    commitFile(repo, "features/pay.feature", feature, "add the scenario");
+    const result = runClassified(repo, ["FAILED", "SKIPPED"]);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /Given, When, or hook/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("rejects a failing command that wrote no messages", () => {
+  const repo = repoWithBase();
+  try {
+    commitFile(repo, "features/pay.feature", feature, "add the scenario");
+    const result = spawnSync("node", [script, "--repo", repo, "--base", "HEAD~1", "--command", "false"], { cwd: repo, encoding: "utf8" });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /wrote no Cucumber messages/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

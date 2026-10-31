@@ -9,3 +9,14 @@
 /.claude/ @YOUR_GITHUB_ORG/YOUR_TEAM
 /.cursor/hooks/ @YOUR_GITHUB_ORG/YOUR_TEAM
 /CODEOWNERS @YOUR_GITHUB_ORG/YOUR_TEAM
+
+# What runs the acceptance tests. A pull request that edits these can change
+# what "passing" means.
+/package.json @YOUR_GITHUB_ORG/YOUR_TEAM
+/package-lock.json @YOUR_GITHUB_ORG/YOUR_TEAM
+/cucumber.js @YOUR_GITHUB_ORG/YOUR_TEAM
+
+# Step definitions sit between the approved sentence and the system. Uncomment
+# the line that matches your layout so weakening a step needs approval too.
+# /features/**/*.js @YOUR_GITHUB_ORG/YOUR_TEAM
+# /src/test/java/ @YOUR_GITHUB_ORG/YOUR_TEAM
