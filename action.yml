@@ -13,6 +13,14 @@ inputs:
     description: Shell command that runs the acceptance tests, for example "npm run acceptance". Set it in the protected workflow, not in a file the agent can edit. Empty skips the run.
     required: false
     default: ""
+  red-command:
+    description: Shell command that runs ONE scenario, named by $TOUCHSTONE_SCENARIO (an anchored regex), for example 'npx cucumber-js --name "$TOUCHSTONE_SCENARIO"'. Each new or changed scenario must fail against the base production code. Empty skips the check.
+    required: false
+    default: ""
+  setup:
+    description: Shell command that prepares the base checkout for the red check, for example "npm ci".
+    required: false
+    default: ""
   comment:
     description: Post or update the trace comment on the pull request.
     required: false
@@ -43,6 +51,14 @@ runs:
         set +e
         node "${{ github.action_path }}/ci/check-trace.js" | tee "$RUNNER_TEMP/touchstone-trace.txt"
         echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+    - name: New scenarios fail before the code exists
+      if: inputs.red-command != '' && (inputs.base != '' || github.event.pull_request.base.sha != '')
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+        RED_COMMAND: ${{ inputs.red-command }}
+        SETUP_COMMAND: ${{ inputs.setup }}
+      run: node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND"
     - name: Acceptance tests pass
       if: inputs.command != ''
       shell: bash

@@ -95,6 +95,10 @@ function init(directory) {
     join(directory, "ci", "check-trace.js"),
   );
   copyIfMissing(
+    join(packageRoot, "ci", "check-red-green.js"),
+    join(directory, "ci", "check-red-green.js"),
+  );
+  copyIfMissing(
     join(packageRoot, "templates", "acceptance-guard.yml"),
     join(directory, ".github", "workflows", "acceptance-guard.yml"),
   );
