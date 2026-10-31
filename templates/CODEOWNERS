@@ -5,3 +5,6 @@
 /.github/workflows/ @YOUR_GITHUB_ORG/YOUR_TEAM
 /ci/check-acceptance-guard.js @YOUR_GITHUB_ORG/YOUR_TEAM
 /ci/check-trace.js @YOUR_GITHUB_ORG/YOUR_TEAM
+/.claude/ @YOUR_GITHUB_ORG/YOUR_TEAM
+/.cursor/hooks/ @YOUR_GITHUB_ORG/YOUR_TEAM
+/CODEOWNERS @YOUR_GITHUB_ORG/YOUR_TEAM

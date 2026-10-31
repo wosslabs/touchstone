@@ -223,7 +223,7 @@ Install the plugin once. The files in [Setup](#setup) are copied into each appli
 /plugin install touchstone@touchstone
 ```
 
-The marketplace file in this repository registers the plugin. The included hook refuses agent edits to `stories/`, `.github/workflows/`, `ci/check-acceptance-guard.js`, and `ci/check-trace.js`.
+The marketplace file in this repository registers the plugin. The included hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `ci/check-acceptance-guard.js`, and `ci/check-trace.js`.
 
 ### Cursor
 
@@ -260,7 +260,7 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 4. Copy the paths in `templates/CODEOWNERS` into the application's `CODEOWNERS`. Replace `@YOUR_GITHUB_ORG/YOUR_TEAM` with the people who may change behavior sentences and the pipeline. Turn on branch protection so those paths require a review from that team.
 5. Add Cucumber and Playwright to the application. The acceptance script is `npm run acceptance`, and it runs `cucumber-js`. Commit `package-lock.json` so the pipeline installs the same versions. Unit tests stay in the application's own test tool. Cucumber is the acceptance layer. Playwright drives a web screen, as in `examples/todo`. An HTTP step calls the running service. A mobile step runs Maestro and reads the visible text. The feature file does not name the driver. The trace still names the file that defines the step.
 
-The workflow compares the pull request with its base commit. It fails the pull request when lines disappear from `stories/`, when the Cucumber feature no longer matches those sentences, when a skipped or disabled test is added, or when `npm run acceptance` fails.
+The workflow compares the pull request with its base commit. It fails the pull request when a line in `stories/` is removed or reworded without a `Touchstone-Allow-Drop:` line, when the Cucumber feature no longer matches those sentences, when a skipped, focused (`.only`), or pending test is added, or when the `command` input (`npm run acceptance` in the template) fails. The command is set in the workflow file, which the hook and CODEOWNERS protect.
 
 A person who is retiring a sentence adds a line in that same approved file:
 
