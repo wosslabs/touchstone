@@ -106,7 +106,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Trace every example
         run: |
-          for example in todo typescript-todo python-todo jvm-todo golang-todo rust-todo mojo-todo; do
+          for example in web-todo typescript-todo python-todo jvm-todo golang-todo rust-todo mojo-todo; do
             echo "== $example"
             node ci/check-trace.js --repo "examples/$example"
           done
