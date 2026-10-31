@@ -195,3 +195,22 @@ test("rejects a scenario that fails against the pull request code too", () => {
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("copies extra overlay paths", () => {
+  const repo = repoWithBase();
+  try {
+    commitFile(repo, "acceptance/steps.txt", "steps\n", "add steps");
+    commitFile(repo, "features/pay.feature", feature, "add the scenario");
+    git(repo, ["reset", "--soft", "HEAD~2"]);
+    git(repo, ["commit", "-m", "both"]);
+    const result = spawnSync(
+      "node",
+      [script, "--repo", repo, "--base", "HEAD~1", "--command", "test -f acceptance/steps.txt", "--any-failure", "--overlay", "acceptance"],
+      { cwd: repo, encoding: "utf8" },
+    );
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /passed against the base production code/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});

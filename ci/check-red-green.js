@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { scenariosIn } from "./gherkin.js";
 
-const OVERLAY = ["features", "stories", "src/test"];
+const DEFAULT_OVERLAY = ["features", "stories", "src/acceptanceTest"];
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -60,9 +60,9 @@ function titlePattern(title) {
   return `^${escaped}$`;
 }
 
-function overlayHead(repo, work) {
-  const present = OVERLAY.filter((path) => git(repo, ["ls-tree", "--name-only", "HEAD", "--", path]).trim() !== "");
-  for (const path of OVERLAY) {
+function overlayHead(repo, work, overlay) {
+  const present = overlay.filter((path) => git(repo, ["ls-tree", "--name-only", "HEAD", "--", path]).trim() !== "");
+  for (const path of overlay) {
     rmSync(join(work, path), { recursive: true, force: true });
   }
   if (present.length === 0) {
@@ -170,6 +170,8 @@ function main() {
   const setup = option("--setup");
   const base = option("--base");
   const anyFailure = process.argv.includes("--any-failure");
+  const extra = option("--overlay").split(",").map((path) => path.trim()).filter(Boolean);
+  const overlay = [...new Set([...DEFAULT_OVERLAY, ...extra])];
   if (!command) {
     console.log("red check: no red command configured, skipping");
     return 0;
@@ -187,7 +189,7 @@ function main() {
   const failures = [];
   try {
     execFileSync("git", ["worktree", "add", "--detach", work, base], { cwd: repo, stdio: "ignore" });
-    overlayHead(repo, work);
+    overlayHead(repo, work, overlay);
     if (setup && run(setup, work, {}).status !== 0) {
       console.error("red check: setup failed in the base checkout");
       return 1;

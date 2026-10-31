@@ -17,6 +17,10 @@ inputs:
     description: 'Shell command that runs ONE scenario, named by $TOUCHSTONE_SCENARIO (an anchored regex), and writes Cucumber messages to $TOUCHSTONE_MESSAGES, for example npx cucumber-js --name "$TOUCHSTONE_SCENARIO" --format message:"$TOUCHSTONE_MESSAGES". Each new or changed scenario must fail at a Then step against the base production code. Empty skips the check.'
     required: false
     default: ""
+  overlay:
+    description: Comma-separated extra paths copied from the pull request onto the base checkout for the red check. features, stories, and src/acceptanceTest are always copied. Step definitions must live in these paths and must not depend on code the pull request adds.
+    required: false
+    default: ""
   setup:
     description: Shell command that prepares the base checkout for the red check, for example "npm ci".
     required: false
@@ -66,7 +70,8 @@ runs:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
         RED_COMMAND: ${{ inputs.red-command }}
         SETUP_COMMAND: ${{ inputs.setup }}
-      run: node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND"
+        OVERLAY: ${{ inputs.overlay }}
+      run: node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND" --overlay "$OVERLAY"
     - name: Acceptance tests pass
       if: inputs.command != ''
       shell: bash
@@ -86,7 +91,7 @@ runs:
       run: |
         : > "$RUNNER_TEMP/touchstone-drivers.txt"
         if [ -n "$BASE" ]; then
-          git diff --name-only "$BASE" HEAD -- features src/test package.json package-lock.json cucumber.js pom.xml build.gradle build.gradle.kts | grep -v '\.feature$' > "$RUNNER_TEMP/touchstone-drivers.txt" || true
+          git diff --name-only "$BASE" HEAD -- features src/acceptanceTest package.json package-lock.json cucumber.js pom.xml build.gradle build.gradle.kts mvnw .mvn | grep -v '\.feature$' > "$RUNNER_TEMP/touchstone-drivers.txt" || true
         fi
     - name: Publish the trace
       if: inputs.comment == 'true' && github.event_name == 'pull_request'

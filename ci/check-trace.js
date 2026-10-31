@@ -7,7 +7,7 @@ const STEP = /^(Given|When|Then|And|But|\*)\s+(.+)$/;
 const SCRIPT_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt"];
 const DEFINITION = /(?:Given|When|Then|defineStep|given|when|then)\s*\(\s*(['"`])([\s\S]*?)\1|@(?:given|when|then|step)\(\s*(['"])([\s\S]*?)\3/g;
 const STEP_SUFFIXES = [".js", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".java", ".kt"];
-const STEP_ROOTS = ["features", "src/test"];
+const STEP_ROOTS = ["features", "src/test", "src/acceptanceTest"];
 const CUCUMBER_TYPES = {
   string: '(?:"[^"]*"|\'[^\']*\')',
   int: "-?\\d+",
