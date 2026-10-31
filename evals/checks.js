@@ -111,6 +111,11 @@ export function evaluate(expect, diff, transcript) {
       failures.push(`created nothing under ${expect.mustCreateUnder}`);
     }
   }
+  for (const path of expect.mustChange || []) {
+    if (!touched.includes(path)) {
+      failures.push(`did not change ${path}`);
+    }
+  }
   if (expect.finalTextMatches) {
     if (!new RegExp(expect.finalTextMatches, "i").test(finalText(transcript))) {
       failures.push(`final message does not match /${expect.finalTextMatches}/`);

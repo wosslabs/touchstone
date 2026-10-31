@@ -39,22 +39,32 @@ function scenariosIn(text) {
   let title = null;
   let steps = [];
   let inDocString = false;
+  let background = null;
   for (const raw of text.split("\n")) {
     const line = raw.trim();
     if (line.startsWith('"""')) {
       inDocString = !inDocString;
-      if (title !== null) {
+      if (title !== null || background !== null) {
         steps.push('"""');
       }
       continue;
     }
     if (inDocString) {
-      if (title !== null) {
+      if (title !== null || background !== null) {
         steps.push(`  ${line}`);
       }
       continue;
     }
     if (!line || line.startsWith("#") || line.startsWith("```")) {
+      continue;
+    }
+    if (/^Background:/.test(line)) {
+      if (title !== null) {
+        found.push([title, steps]);
+        title = null;
+      }
+      background = [];
+      steps = background;
       continue;
     }
     const scenario = SCENARIO.exec(line);
@@ -63,10 +73,10 @@ function scenariosIn(text) {
         found.push([title, steps]);
       }
       title = scenario[1].trim();
-      steps = [];
+      steps = background ? [...background] : [];
       continue;
     }
-    if (title === null) {
+    if (title === null && background === null) {
       continue;
     }
     const step = STEP.exec(line);
@@ -189,7 +199,7 @@ function isEmptyBody(text, from) {
       depth -= 1;
       if (depth === 0) {
         const body = text.slice(open + 1, cursor).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
-        return body.trim() === "";
+        return /^(?:return(?:\s+(?:true|undefined|null))?\s*;?)?$/.test(body.trim());
       }
     }
   }
