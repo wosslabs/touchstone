@@ -13,6 +13,9 @@ Install Mojo with `pixi exec -c https://conda.modular.com/max -c conda-forge -s 
 
 ```yaml
 - uses: prefix-dev/setup-pixi@v0.8.1
+  with:
+    run-install: false
+    cache: false
 - uses: astral-sh/setup-uv@v5
 - uses: wosslabs/touchstone@v1
   with:
