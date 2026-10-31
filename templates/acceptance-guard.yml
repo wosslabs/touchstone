@@ -4,8 +4,11 @@
 # and posts the trace on the pull request. The command lives here, in a
 # protected file, so an agent cannot redefine what passing means.
 # red-command runs each new or changed scenario against the base production
-# code. It must fail there. A scenario that passes before any code changed is
-# empty, or already built. Node.js is available on GitHub-hosted runners.
+# code. It must fail at a Then step. A scenario that passes, or fails because a
+# step is undefined or a Given could not run, is not a valid red. The command
+# must write Cucumber messages to $TOUCHSTONE_MESSAGES so the check can tell.
+# The commands are written here, not as npm scripts, because package.json is
+# something a pull request can edit. Node.js is available on GitHub-hosted runners.
 # The workflow needs permission to write a pull request comment.
 name: Acceptance guard
 
@@ -23,13 +26,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm ci
+      # --ignore-scripts: install scripts in a pull request's package.json
+      # must not run before the verdict.
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
       - uses: wosslabs/touchstone@v1
         with:
-          command: npm run acceptance
-          setup: npm ci
-          red-command: npx cucumber-js --name "$TOUCHSTONE_SCENARIO"
+          command: npx cucumber-js --strict
+          setup: npm ci --ignore-scripts
+          red-command: npx cucumber-js --strict --name "$TOUCHSTONE_SCENARIO" --format message:"$TOUCHSTONE_MESSAGES"
           base: ${{ github.event.pull_request.base.sha }}

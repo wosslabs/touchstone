@@ -1,6 +1,6 @@
 {
   "name": "@wosslabs/touchstone",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "description": "Approve a behavior sentence, watch it fail, then build. Every scenario stays traced to the code that runs it.",
   "bin": {

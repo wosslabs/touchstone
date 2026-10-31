@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 // Drives real agent sessions against a fixture and checks what they changed.
 // Costs money and is not deterministic: run it on purpose, not in `npm test`.
-//   node evals/run.js [--case name] [--budget 1.00] [--dry]
+//   node evals/run.js [--case name] [--runs 5] [--budget 1.00] [--permission-mode acceptEdits] [--dry]
+// One run is an anecdote. Use --runs to get a pass rate per case.
+// acceptEdits does not auto-approve shell commands in headless mode, so Claude Code
+// permissions can block a shortcut before Touchstone sees it. To measure the skills
+// and hook alone, run in a disposable sandbox with --permission-mode bypassPermissions.
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,11 +36,11 @@ function prepare(testCase) {
   return work;
 }
 
-function command(testCase, budget) {
+function command(testCase, budget, mode) {
   return [
     "-p", testCase.prompt,
     "--plugin-dir", packageRoot,
-    "--permission-mode", "acceptEdits",
+    "--permission-mode", mode,
     "--output-format", "stream-json",
     "--verbose",
     "--max-budget-usd", budget,
@@ -46,6 +50,8 @@ function command(testCase, budget) {
 function main() {
   const only = option("--case");
   const budget = option("--budget", "1.00");
+  const mode = option("--permission-mode", "acceptEdits");
+  const runs = Math.max(1, Number.parseInt(option("--runs", "1"), 10) || 1);
   const dry = process.argv.includes("--dry");
   const casesDir = join(packageRoot, "evals", "cases");
   const cases = readdirSync(casesDir)
@@ -60,27 +66,33 @@ function main() {
   mkdirSync(results, { recursive: true });
   let failed = 0;
   for (const testCase of cases) {
-    const work = prepare(testCase);
     if (dry) {
-      console.log(`${testCase.name}: claude ${command(testCase, budget).map((part) => JSON.stringify(part)).join(" ")}`);
-      rmSync(work, { recursive: true, force: true });
+      console.log(`${testCase.name}: claude ${command(testCase, budget, mode).map((part) => JSON.stringify(part)).join(" ")}`);
       continue;
     }
-    const before = snapshot(work);
-    const started = Date.now();
-    const run = spawnSync("claude", command(testCase, budget), { cwd: work, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-    const transcript = run.stdout || "";
-    const failures = run.error ? [`could not run claude: ${run.error.message}`] : evaluate(testCase.expect, changes(before, snapshot(work)), transcript);
-    writeFileSync(join(results, `${testCase.name}.jsonl`), transcript);
-    const seconds = Math.round((Date.now() - started) / 1000);
-    console.log(`${failures.length ? "FAIL" : "PASS"} ${testCase.name} (${seconds}s)`);
-    for (const failure of failures) {
-      console.log(`  - ${failure}`);
+    let passed = 0;
+    const reasons = [];
+    for (let run = 1; run <= runs; run += 1) {
+      const work = prepare(testCase);
+      const before = snapshot(work);
+      const result = spawnSync("claude", command(testCase, budget, mode), { cwd: work, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      const transcript = result.stdout || "";
+      const failures = result.error
+        ? [`could not run claude: ${result.error.message}`]
+        : evaluate(testCase.expect, changes(before, snapshot(work)), transcript);
+      writeFileSync(join(results, `${testCase.name}-${run}.jsonl`), transcript);
+      if (failures.length) {
+        reasons.push(`run ${run}: ${failures.join("; ")}`);
+      } else {
+        passed += 1;
+        rmSync(work, { recursive: true, force: true });
+      }
     }
-    failed += failures.length ? 1 : 0;
-    if (!failures.length && existsSync(work)) {
-      rmSync(work, { recursive: true, force: true });
+    console.log(`${passed === runs ? "PASS" : "FAIL"} ${testCase.name}: ${passed}/${runs} runs (${mode})`);
+    for (const reason of reasons) {
+      console.log(`  - ${reason}`);
     }
+    failed += passed === runs ? 0 : 1;
   }
   return failed ? 1 : 0;
 }
