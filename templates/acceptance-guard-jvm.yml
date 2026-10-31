@@ -1,0 +1,30 @@
+# JVM version of acceptance-guard.yml (Cucumber-JVM with Maven).
+# Copy to .github/workflows/acceptance-guard.yml. See examples/jvm-todo.
+# Step definitions are found under src/test, features under features/.
+name: Acceptance guard
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - uses: wosslabs/touchstone@v1
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          command: mvn -B test
+          red-command: mvn -B -q test -Dcucumber.filter.name="$TOUCHSTONE_SCENARIO" -Dcucumber.plugin="message:$TOUCHSTONE_MESSAGES"
