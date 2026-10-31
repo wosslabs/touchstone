@@ -22,6 +22,13 @@ const feature = `Feature: Add a task
     Then the words "Buy milk" appear on the list
 `;
 
+const stepFile = [
+  'Given("the list has no tasks", async function () { await check() })',
+  'When("the person types {string} and presses Add", async function () { await check() })',
+  'Then("the words {string} appear on the list", async function () { await check() })',
+  "",
+].join("\n");
+
 function write(root, relative, text) {
   const path = join(root, relative);
   mkdirSync(dirname(path), { recursive: true });
@@ -37,6 +44,7 @@ test("links the example to the feature", () => {
   try {
     write(root, "stories/add-a-task.md", example);
     write(root, "features/add-a-task.feature", feature);
+    write(root, "features/steps.js", stepFile);
     const result = runTrace(root);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /stories\/add-a-task.md/);
@@ -122,6 +130,7 @@ test("accepts a feature file as the approved sentence", () => {
   try {
     write(root, "stories/add-a-task.feature", feature);
     write(root, "features/add-a-task.feature", feature);
+    write(root, "features/steps.js", stepFile);
     const result = runTrace(root);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /stories\/add-a-task.feature/);
@@ -175,6 +184,68 @@ Examples:
     const result = runTrace(root);
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stdout, /steps differ/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails when a feature has no step definitions anywhere", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "stories/add-a-task.md", example);
+    write(root, "features/add-a-task.feature", feature);
+    const result = runTrace(root);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /no step definitions found/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("binds steps defined in Cucumber-JVM", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "stories/add-a-task.md", example);
+    write(root, "src/test/resources/features/add-a-task.feature", feature);
+    write(root, "features/add-a-task.feature", feature);
+    write(root, "src/test/java/app/TaskSteps.java", [
+      "public class TaskSteps {",
+      '  @Given("the list has no tasks")',
+      "  public void noTasks() { list.clear(); }",
+      '  @When("the person types {string} and presses Add")',
+      "  public void add(String title) { page.add(title); }",
+      '  @Then("^the words \"([^\"]*)\" appear on the list$")',
+      "  public void appears(String title) { assertThat(page.items()).contains(title); }",
+      "}",
+      "",
+    ].join("\n"));
+    const result = runTrace(root);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /definition: src\/test\/java\/app\/TaskSteps.java/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails when a Cucumber-JVM step does nothing", () => {
+  const root = mkdtempSync(join(tmpdir(), "touchstone-trace-"));
+  try {
+    write(root, "stories/add-a-task.md", example);
+    write(root, "features/add-a-task.feature", feature);
+    write(root, "src/test/java/app/TaskSteps.java", [
+      "public class TaskSteps {",
+      '  @Given("the list has no tasks")',
+      "  public void noTasks() { list.clear(); }",
+      '  @When("the person types {string} and presses Add")',
+      "  public void add(String title) { page.add(title); }",
+      '  @Then("the words {string} appear on the list")',
+      "  public void appears(String title) { }",
+      "}",
+      "",
+    ].join("\n"));
+    const result = runTrace(root);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /definition does nothing/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
