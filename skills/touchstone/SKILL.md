@@ -40,6 +40,8 @@ Ask one question at a time. Attach your guess, so they can correct it. Wait for 
 
 Play one situation back in their words, including what is out of scope. "Sounds good" and "whatever you think" are not approval. Ask what is wrong or missing.
 
+If `drafts/stressors.md` exists, read the stressors the person chose for this row. Each one is a situation to draft as a failure-mode sentence. Do not add stressors they did not choose.
+
 Do not offer a menu of features they did not ask for. Do not fill a gap in silence. If you are assuming the database, the client, or who the sentence is for, say the assumption and let them correct it.
 
 When the situations are clear, write `drafts/<short-name>.md`. One situation per block. Enough situations to change a decision. Not the whole product.
