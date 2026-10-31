@@ -96,6 +96,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Build and test the Mojo program
         run: |
+          mkdir -p build
           pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo build src/todo.mojo -o build/todo
           pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo run -I src tests/test_tasks.mojo
       - run: uv run --group dev behave
