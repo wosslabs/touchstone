@@ -223,7 +223,7 @@ Install the plugin once. The files in [Setup](#setup) are copied into each appli
 /plugin install touchstone@touchstone
 ```
 
-The marketplace file in this repository registers the plugin. The included hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `ci/check-acceptance-guard.js`, `ci/check-trace.js`, and `ci/check-red-green.js`.
+The marketplace file in this repository registers the plugin. The hook is a seatbelt, not a lock. It catches ordinary edits and obvious shell writes, and a determined agent can route around it (for example by building a path in a shell variable). The real controls are CODEOWNERS and branch protection, which the agent cannot bypass. The included hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `ci/check-acceptance-guard.js`, `ci/check-trace.js`, and `ci/check-red-green.js`.
 
 ### Cursor
 
@@ -260,7 +260,7 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 4. Copy the paths in `templates/CODEOWNERS` into the application's `CODEOWNERS`. Replace `@YOUR_GITHUB_ORG/YOUR_TEAM` with the people who may change behavior sentences and the pipeline. Turn on branch protection so those paths require a review from that team.
 5. Add Cucumber and Playwright to the application. The acceptance script is `npm run acceptance`, and it runs `cucumber-js`. Commit `package-lock.json` so the pipeline installs the same versions. Unit tests stay in the application's own test tool. Cucumber is the acceptance layer. Playwright drives a web screen, as in `examples/todo`. An HTTP step calls the running service. A mobile step runs Maestro and reads the visible text. The feature file does not name the driver. The trace still names the file that defines the step.
 
-The workflow compares the pull request with its base commit. It fails the pull request when a line in `stories/` is removed or reworded without a `Touchstone-Allow-Drop:` line, when the Cucumber feature no longer matches those sentences, when a skipped, focused (`.only`), or pending test is added, when a new or changed scenario passes against the base production code (the `red-command` check), or when the `command` input (`npm run acceptance` in the template) fails. The command is set in the workflow file, which the hook and CODEOWNERS protect.
+The workflow compares the pull request with its base commit. It fails the pull request when a line in `stories/` is removed or reworded without a `Touchstone-Allow-Drop:` line, when the Cucumber feature no longer matches those sentences, when a skipped, focused (`.only`), or pending test is added, when a new or changed scenario passes against the base production code (the `red-command` check), or when the `command` input (`npm run acceptance` in the template) fails. The optional `holdout-command` input runs scenarios kept outside the repository, such as in a private repository fetched with a secret the agent cannot read, so the agent cannot tune its code to the examples it can see. The command is set in the workflow file, which the hook and CODEOWNERS protect.
 
 A person who is retiring a sentence adds a line in that same approved file:
 

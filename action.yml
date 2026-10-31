@@ -21,6 +21,10 @@ inputs:
     description: Shell command that prepares the base checkout for the red check, for example "npm ci".
     required: false
     default: ""
+  holdout-command:
+    description: Shell command that fetches and runs held-back scenarios the agent never sees, for example from a private repository using a secret the agent cannot read. Runs after the acceptance command. Empty skips.
+    required: false
+    default: ""
   comment:
     description: Post or update the trace comment on the pull request.
     required: false
@@ -65,16 +69,45 @@ runs:
       env:
         ACCEPTANCE_COMMAND: ${{ inputs.command }}
       run: bash -c "$ACCEPTANCE_COMMAND"
+    - name: Held-back scenarios pass
+      if: inputs.holdout-command != ''
+      shell: bash
+      env:
+        HOLDOUT_COMMAND: ${{ inputs.holdout-command }}
+      run: bash -c "$HOLDOUT_COMMAND"
+    - name: List driver changes
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+      run: |
+        : > "$RUNNER_TEMP/touchstone-drivers.txt"
+        if [ -n "$BASE" ]; then
+          git diff --name-only "$BASE" HEAD -- features | grep -v '\.feature$' > "$RUNNER_TEMP/touchstone-drivers.txt" || true
+        fi
     - name: Publish the trace
       if: inputs.comment == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v7
       env:
         TRACE_FILE: ${{ runner.temp }}/touchstone-trace.txt
+        DRIVERS_FILE: ${{ runner.temp }}/touchstone-drivers.txt
       with:
         script: |
           const fs = require('fs')
           const trace = fs.readFileSync(process.env.TRACE_FILE, 'utf8').trim()
+          const drivers = fs.readFileSync(process.env.DRIVERS_FILE, 'utf8').trim()
           const marker = '<!-- touchstone-trace -->'
+          const driverSection = drivers
+            ? [
+                '### Driver changes: review these',
+                '',
+                'Step definitions and support code sit between the approved sentence and the system. A dishonest driver makes every sentence pass.',
+                '',
+                '```text',
+                drivers,
+                '```',
+                '',
+              ]
+            : []
           const body = [
             marker,
             '### Touchstone trace',
@@ -85,6 +118,7 @@ runs:
             trace,
             '```',
             '',
+            ...driverSection,
           ].join('\n')
           const { owner, repo } = context.repo
           const issue_number = context.issue.number

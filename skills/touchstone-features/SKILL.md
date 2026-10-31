@@ -36,9 +36,26 @@ Order them so the first row is useful on its own. Later rows may use earlier one
 
 A screen is still a feature. Describe what the person sees and does, not the widgets' code. The later check for that row is a Cucumber scenario driven by Playwright. Do not set that up in this step.
 
+## Ask what could go wrong
+
+A list built from the requirements covers the futures someone already imagined. Before the person picks a row, write `drafts/stressors.md`: 15 to 25 unlikely but possible events for the rows that matter. Be strange on purpose. The bank times out. The person presses Add twice. The currency changes. The card network is down. A supplier disappears. Volume is ten times larger.
+
+Each stressor is one line: the event, and which row it touches.
+
+```markdown
+# Stressors
+
+| Stressor | Touches | Failure sentence worth approving? |
+| --- | --- | --- |
+| The bank times out after the charge | Declined card | yes: the person sees "payment pending", not a second charge |
+| Volume is ten times larger | all | no: a load test, not a sentence |
+```
+
+Do not decide which ones matter. The person chooses. A chosen stressor becomes a failure-mode sentence in the later `touchstone` step. A structural stressor (a module that must survive a supplier change, a boundary that must hold) belongs in an architecture test, not a sentence. Say which.
+
 ## Stop
 
-Show the list. Ask which row is first. End the turn.
+Show the list and the stressors. Ask which row is first. End the turn.
 
 Their answer is one row. The next skill is `touchstone`, for that row only. Leave the other rows in the draft.
 
