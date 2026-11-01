@@ -13,6 +13,8 @@
     "ci/gherkin.js",
     "ci/check-red-green.js",
     "ci/red-reason.js",
+    "ci/discover.js",
+    "ci/check-evidence.js",
     "hooks/protect-acceptance.js",
     "templates/"
   ],

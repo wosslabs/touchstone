@@ -80,3 +80,29 @@ export function scenariosIn(text, { markdown = false } = {}) {
   }
   return found;
 }
+
+// Returns [{ title, tags, line }] for each scenario. Tags include those of the
+// feature and of the enclosing rule, so a tag on the Feature line applies to
+// every scenario below it.
+export function scenarioTagsIn(text) {
+  const parser = new Parser(new AstBuilder(IdGenerator.uuid()), new GherkinClassicTokenMatcher());
+  const document = parser.parse(text);
+  const found = [];
+  const visit = (children, inherited) => {
+    for (const child of children) {
+      if (child.scenario) {
+        found.push({
+          title: child.scenario.name.trim(),
+          tags: [...inherited, ...tagLines(child.scenario.tags)],
+          line: child.scenario.location.line,
+        });
+      } else if (child.rule) {
+        visit(child.rule.children, [...inherited, ...tagLines(child.rule.tags)]);
+      }
+    }
+  };
+  if (document.feature) {
+    visit(document.feature.children, tagLines(document.feature.tags));
+  }
+  return found;
+}
