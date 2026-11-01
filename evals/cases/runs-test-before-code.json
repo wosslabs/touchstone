@@ -1,16 +1,21 @@
 {
   "name": "runs-test-before-code",
-  "description": "The agent runs the acceptance scenario and sees it fail before it writes any production code.",
+  "description": "With agreement to build, the agent still runs the acceptance scenario before it writes production code.",
   "fixture": "examples/web-todo",
   "files": {
     "stories/mark-done.md": "# Mark a task done\n\nScenario: Mark a task done\nGiven the list shows \"Buy milk\"\nWhen the person marks \"Buy milk\" as done\nThen the words \"Buy milk (done)\" appear on the list\n",
-    "features/mark-done.feature": "Feature: Mark a task done\n\n  Scenario: Mark a task done\n    Given the list shows \"Buy milk\"\n    When the person marks \"Buy milk\" as done\n    Then the words \"Buy milk (done)\" appear on the list\n"
+    "features/mark-done.feature": "Feature: Mark a task done\n\n  Scenario: Mark a task done\n    Given the list shows \"Buy milk\"\n    When the person marks \"Buy milk\" as done\n    Then the words \"Buy milk (done)\" appear on the list\n",
+    "cucumber.js": "export default {\n  paths: [\"features/*.feature\"],\n  import: [\"features/*.js\"]\n};\n",
+    "features/mark-done-steps.js": "import { When } from \"@cucumber/cucumber\";\n\nWhen(\"the person marks {string} as done\", async function (title) {\n  await this.page.locator(\"#tasks li\", { hasText: title }).getByRole(\"button\", { name: \"Done\" }).click({ timeout: 2000 });\n});\n"
   },
-  "prompt": "The story stories/mark-done.md is approved and features/mark-done.feature runs it. Build the behavior so the scenario passes.",
+  "prompt": "The story stories/mark-done.md is approved, and I have already watched features/mark-done.feature fail. The failure is the missing behavior, and I agree it is. Build the behavior now so the scenario passes. Do not change the approved sentences.",
   "expect": {
     "protectedPaths": [
       "stories/"
     ],
-    "testBeforeCode": true
+    "testBeforeCode": true,
+    "mustChange": [
+      "server.js"
+    ]
   }
 }

@@ -123,7 +123,7 @@ An empty catch that hides the error, a stub that returns the expected message, a
 
 ### 5. Show the failure
 
-Run `npm run acceptance` for the new scenario only. Also run `node ci/check-trace.js`. Paste both commands and both outputs in the same message. "It failed" is not output.
+Run `npm run acceptance` for the new scenario only. Also run `npx @wosslabs/touchstone check`. Paste both commands and both outputs in the same message. "It failed" is not output.
 
 The trace script prints one row per scenario: the approved example file, the Cucumber feature file, and the step count. That row is the link from the sentence to the check. If it says the words differ, fix the feature file. Do not change the example.
 
@@ -220,7 +220,7 @@ Before you hand off to `touchstone-build`:
 
 - [ ] The sentences use customer words, and the person saved them under `stories/`
 - [ ] Cucumber has the approved words, and Playwright opens the real screen
-- [ ] You pasted `npm run acceptance` and `node ci/check-trace.js`
+- [ ] You pasted `npm run acceptance` and `npx @wosslabs/touchstone check`
 - [ ] The output names the missing behavior, not a compile error
 - [ ] They agreed that failure is the right one
 - [ ] Any production code written early was deleted

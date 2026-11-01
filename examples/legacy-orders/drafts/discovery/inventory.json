@@ -1,0 +1,110 @@
+{
+  "root": ".",
+  "files": {
+    "total": 5,
+    "byLanguage": {
+      "JavaScript": {
+        "files": 5,
+        "lines": 264
+      }
+    }
+  },
+  "buildFiles": [
+    {
+      "file": "package.json",
+      "tool": "npm (Node)"
+    }
+  ],
+  "modules": [
+    {
+      "path": "features",
+      "files": 1,
+      "lines": 117
+    },
+    {
+      "path": "src/orders.js",
+      "files": 1,
+      "lines": 93
+    },
+    {
+      "path": "src/router.js",
+      "files": 1,
+      "lines": 42
+    },
+    {
+      "path": ".",
+      "files": 1,
+      "lines": 7
+    },
+    {
+      "path": "src/server.js",
+      "files": 1,
+      "lines": 5
+    }
+  ],
+  "entries": [
+    {
+      "kind": "http-route",
+      "framework": "Express/Koa/Fastify",
+      "method": "GET",
+      "name": "/orders",
+      "file": "src/orders.js",
+      "line": 10
+    },
+    {
+      "kind": "http-route",
+      "framework": "Express/Koa/Fastify",
+      "method": "GET",
+      "name": "/orders/:id",
+      "file": "src/orders.js",
+      "line": 14
+    },
+    {
+      "kind": "http-route",
+      "framework": "Express/Koa/Fastify",
+      "method": "POST",
+      "name": "/orders",
+      "file": "src/orders.js",
+      "line": 20
+    },
+    {
+      "kind": "http-route",
+      "framework": "Express/Koa/Fastify",
+      "method": "POST",
+      "name": "/orders/:id/pay",
+      "file": "src/orders.js",
+      "line": 50
+    },
+    {
+      "kind": "http-route",
+      "framework": "Express/Koa/Fastify",
+      "method": "POST",
+      "name": "/orders/:id/ship",
+      "file": "src/orders.js",
+      "line": 58
+    },
+    {
+      "kind": "http-route",
+      "framework": "Express/Koa/Fastify",
+      "method": "POST",
+      "name": "/orders/:id/refund",
+      "file": "src/orders.js",
+      "line": 66
+    },
+    {
+      "kind": "http-route",
+      "framework": "Express/Koa/Fastify",
+      "method": "GET",
+      "name": "/legacy/export",
+      "file": "src/orders.js",
+      "line": 78
+    },
+    {
+      "kind": "scheduled-job",
+      "framework": "node-cron",
+      "name": "0 2 * * *",
+      "file": "src/orders.js",
+      "line": 88
+    }
+  ]
+}

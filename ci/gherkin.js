@@ -106,3 +106,49 @@ export function scenarioTagsIn(text) {
   }
   return found;
 }
+
+function plainStep(step) {
+  const lines = [`${step.keyword.trim()} ${step.text.trim()}`];
+  if (step.dataTable) {
+    lines.push(...step.dataTable.rows.map((tableRow) => row(tableRow.cells)));
+  }
+  return lines;
+}
+
+// Returns the readable shape of a feature file: its name, description, and the
+// scenarios with their tags and steps. Background steps are kept separately.
+export function featureOutline(text) {
+  const parser = new Parser(new AstBuilder(IdGenerator.uuid()), new GherkinClassicTokenMatcher());
+  const document = parser.parse(text);
+  const feature = document.feature;
+  if (!feature) {
+    return null;
+  }
+  const outline = {
+    name: feature.name.trim(),
+    description: (feature.description || "").split("\n").map((line) => line.trim()).filter(Boolean).join(" "),
+    tags: tagLines(feature.tags),
+    background: [],
+    scenarios: [],
+  };
+  const visit = (children, rule) => {
+    for (const child of children) {
+      if (child.background) {
+        outline.background.push(...child.background.steps.flatMap(plainStep));
+      } else if (child.scenario) {
+        outline.scenarios.push({
+          title: child.scenario.name.trim(),
+          rule,
+          tags: [...outline.tags, ...tagLines(child.scenario.tags)],
+          steps: child.scenario.steps.flatMap(plainStep),
+          examples: child.scenario.examples.flatMap(examplesLines),
+          line: child.scenario.location.line,
+        });
+      } else if (child.rule) {
+        visit(child.rule.children, child.rule.name.trim());
+      }
+    }
+  };
+  visit(feature.children, "");
+  return outline;
+}

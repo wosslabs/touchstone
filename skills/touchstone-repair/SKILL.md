@@ -16,13 +16,13 @@ Fix only the driver and the tool setup:
 - Install `@cucumber/cucumber` and `playwright`, and install Playwright's Chromium, when the failure says they are missing.
 - Start the application the way a person would, then point the step at that running screen or service.
 - Add the step definition for a sentence that is already approved. The words in the definition match the sentence. They do not replace it.
-- Keep the feature file the same as the approved example. If `node ci/check-trace.js` says the words differ, change the feature file back. Ask the person to change the example.
+- Keep the feature file the same as the approved example. If `npx @wosslabs/touchstone check` says the words differ, change the feature file back. Ask the person to change the example.
 
 An HTTP service and a mobile screen use the same sentences. The step calls the running service, or Maestro, instead of opening a browser. The trace still names the definition file.
 
 ## Show the run again
 
-Run `npm run acceptance` and `node ci/check-trace.js`. Paste both commands and both outputs.
+Run `npm run acceptance` and `npx @wosslabs/touchstone check`. Paste both commands and both outputs.
 
 Stop when the failure names the missing behavior, such as a missing title on the list or a customer who was charged. That is the hand-off back to the person. Do not start `touchstone-build` in the same turn.
 

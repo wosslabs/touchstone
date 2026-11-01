@@ -75,7 +75,7 @@ If you cannot reproduce it, stop. Say what you tried. Do not ship a guess.
 
 ## The sentence passes
 
-Re-run `npm run acceptance` for every approved scenario, then `node ci/check-trace.js`, then the project's full suite. Paste each command and its output in the same message. A green Cucumber run whose words differ from the approved example is not done.
+Re-run `npm run acceptance` for every approved scenario, then `npx @wosslabs/touchstone check`, then the project's full suite. Paste each command and its output in the same message. A green Cucumber run whose words differ from the approved example is not done.
 
 Do not say "should pass", "looks correct", or "done" without that output. A run from earlier in the session does not count. The code has changed since then.
 
@@ -127,7 +127,7 @@ The pull request names each scenario, the example file, the Cucumber feature fil
 - [ ] Each new unit test failed for the missing behavior before the code that passes it
 - [ ] Each slice is one sentence's worth of behavior, committed on a green suite
 - [ ] `npm run acceptance` passed against the real screen, and you pasted that output
-- [ ] `node ci/check-trace.js` passed, and the pull request includes that trace
+- [ ] `npx @wosslabs/touchstone check` passed, and the pull request includes that trace
 - [ ] The full suite output is in the pull request
 - [ ] The diff does not touch protected paths, skips, or loosened assertions
 - [ ] You can explain the slice without reading the code line by line
