@@ -127,3 +127,43 @@ test("fails when a test is focused", () => {
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("fails when a build file keeps going after test failures", () => {
+  for (const [path, line] of [
+    ["pom.xml", "<testFailureIgnore>true</testFailureIgnore>"],
+    ["pom.xml", "<skipTests>true</skipTests>"],
+    ["build.gradle", "test { ignoreFailures = true }"],
+    [".github/workflows/ci.yml", "    continue-on-error: true"],
+  ]) {
+    const repo = repoWithExample();
+    try {
+      commitFile(repo, path, `${line}\n`, "weaken the build");
+      const result = runGuard(repo, ["--base", "HEAD~1"]);
+      assert.equal(result.status, 1, `${path}: ${result.stdout}${result.stderr}`);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  }
+});
+
+test("allows a property-driven skip switch", () => {
+  const repo = repoWithExample();
+  try {
+    commitFile(repo, "pom.xml", "<skipTests>${skipUnitTests}</skipTests>\n", "add a switch");
+    const result = runGuard(repo, ["--base", "HEAD~1"]);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("an application's tests folder is not exempt from the skip check", () => {
+  const repo = repoWithExample();
+  try {
+    commitFile(repo, "tests/pay.test.js", "test.only('pays', () => {})\n", "focus a test");
+    const result = runGuard(repo, ["--base", "HEAD~1"]);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});

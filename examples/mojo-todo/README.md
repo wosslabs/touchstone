@@ -9,7 +9,7 @@ uv run --group dev behave                # scenarios in features/
 npx @wosslabs/touchstone check
 ```
 
-Install Mojo with `pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo ...` or a pixi project. behave cannot write Cucumber messages, so the red check accepts any failing run (`red-reason-unchecked`):
+Install Mojo with `pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo ...` or a pixi project. behave writes a Cucumber-style JSON report, so the red check can tell an assertion failure from a broken test (this red command is not yet run end to end):
 
 ```yaml
 - uses: prefix-dev/setup-pixi@v0.8.1
@@ -21,6 +21,5 @@ Install Mojo with `pixi exec -c https://conda.modular.com/max -c conda-forge -s 
   with:
     base: ${{ github.event.pull_request.base.sha }}
     command: mkdir -p build && pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo build src/todo.mojo -o build/todo && uv run --group dev behave
-    red-command: mkdir -p build && pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo build src/todo.mojo -o build/todo && uv run --group dev behave --name "$TOUCHSTONE_SCENARIO"
-    red-reason-unchecked: "true"
+    red-command: mkdir -p build && pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo build src/todo.mojo -o build/todo && uv run --group dev behave --name "$TOUCHSTONE_SCENARIO" -f json -o "$TOUCHSTONE_MESSAGES" -f pretty
 ```

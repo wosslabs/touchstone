@@ -17,7 +17,7 @@ That sentence is the requirement. Someone who uses or supports the product can a
 
 Touchstone works with Claude Code, Cursor, and any agent that reads a `SKILL.md` file, including GitHub Copilot and Codex. It is not related to other software that uses the same name.
 
-**Status:** early beta. The Node, TypeScript and Java paths are the best tested. See [Project status](#project-status) for what has and has not been verified.
+**Status:** early beta. The Node, TypeScript, Java, Python, Go and Rust paths have all been run end to end. See [Project status](#project-status) for what has and has not been verified.
 
 ## Contents
 
@@ -298,7 +298,7 @@ The action compares the pull request with its base commit, runs the checks below
 | Check | It fails the pull request when |
 | --- | --- |
 | Approved sentences | A line in `stories/` is removed or reworded. A person can retire a sentence by adding a `Touchstone-Allow-Drop:` line to the same file (see below). |
-| Skipped tests | A skipped, disabled, focused (`.only`), pending (`todo`) or work-in-progress test is added. |
+| Skipped tests | A skipped, disabled, focused (`.only`), pending (`todo`) or work-in-progress test is added. A build file is changed to ignore test failures (`testFailureIgnore`, `skipTests` set to true, `ignoreFailures`). A workflow step gets `continue-on-error: true`. |
 | Trace | A sentence has no scenario, a scenario has no sentence, titles repeat, steps differ in any way, a step has no definition, or a definition does nothing. |
 | Red before green | A new or changed scenario passes against the base commit. Or it fails for the wrong reason. Or it does not pass with the pull request's code. |
 | Acceptance command | The `command` you set in the workflow fails. |
@@ -310,13 +310,17 @@ For every new or changed scenario, the check copies the pull request's `features
 
 Failures count as "red" only when they look like missing behavior: a failed assertion, a locator that times out, a 404 or 405 response. These do not count: an undefined or pending step, a failing `Given` or hook, `TypeError`, `ReferenceError`, `NoSuchMethodError`, `ECONNREFUSED`, and similar programming or environment errors.
 
-To tell these apart, the check reads Cucumber's message output. Your `red-command` must run one scenario, named by `$TOUCHSTONE_SCENARIO` (an anchored regular expression), and write Cucumber messages to `$TOUCHSTONE_MESSAGES`. With cucumber-js:
+To tell these apart, the check reads the runner's results. Your `red-command` must run the scenario named by `$TOUCHSTONE_SCENARIO` (an anchored regular expression) and write results to `$TOUCHSTONE_MESSAGES`, either as Cucumber messages or as a Cucumber JSON report. With cucumber-js:
 
 ```bash
 npx cucumber-js --strict --name "$TOUCHSTONE_SCENARIO" --format message:"$TOUCHSTONE_MESSAGES"
 ```
 
-Some runners cannot write Cucumber messages. For those, set `red-reason-unchecked: "true"`. The check then only proves that a new scenario fails before the code exists. It cannot tell an assertion failure from a programming error, and it skips the "passes with the pull request code" run.
+The [examples](#examples-by-language) show the same thing for Java, Python, Go and Rust. A step's type (Given, When or Then) comes from the report, so a failing `And` after a `Given` is treated as a setup error.
+
+Only if your runner can write neither format, set `red-reason-unchecked: "true"`. The check then only proves that a new scenario fails before the code exists. It cannot tell an assertion failure from a programming error, and it skips the "passes with the pull request code" run.
+
+Each scenario normally gets its own run at the base commit and another with the pull request's code. If starting your application is slow (Spring, for example), set `red-batch: "true"` to run all changed scenarios together in one pass per phase. Your `red-command` must then accept a regular expression with alternation in `$TOUCHSTONE_SCENARIO`.
 
 ### Action inputs
 
@@ -325,7 +329,8 @@ Some runners cannot write Cucumber messages. For those, set `red-reason-unchecke
 | `base` | The pull request's base commit. Defaults to the pull request base. |
 | `command` | Runs all acceptance tests. Set it in the workflow file, not in `package.json`. |
 | `red-command` | Runs one scenario for the red check (see above). Empty skips the check. |
-| `red-reason-unchecked` | `"true"` for runners that cannot write Cucumber messages. |
+| `red-batch` | `"true"` to run all changed scenarios in one pass per phase. |
+| `red-reason-unchecked` | `"true"` only for runners that can write neither Cucumber messages nor a Cucumber JSON report. |
 | `setup` | Prepares the base checkout for the red check, for example `npm ci --ignore-scripts`. |
 | `overlay` | Extra comma-separated paths copied from the pull request onto the base checkout. |
 | `holdout-command` | Runs held-back scenarios (see [below](#held-back-scenarios)). |
@@ -362,15 +367,17 @@ Each change should answer four questions without anyone reading the chat.
 
 Every example is the same small todo list with the same approved story, so you can compare how the acceptance layer looks in each stack. Steps talk to the running system only. Unit tests are kept apart from acceptance scenarios. Each folder has its own README with commands and a workflow.
 
-| Folder | Application | Cucumber runner | Red check reads the failure reason |
+| Folder | Application | Cucumber runner | Red check, run end to end |
 | --- | --- | --- | --- |
 | `examples/web-todo` | Node web page | cucumber-js + Playwright | yes |
-| `examples/typescript-todo` | TypeScript HTTP service | cucumber-js | yes |
+| `examples/typescript-todo` | TypeScript HTTP service | cucumber-js | yes (also the base for `npm run attacks`) |
 | `examples/jvm-todo` | Spring Boot 4 | Cucumber-JVM | yes |
-| `examples/python-todo` | Python `http.server` | behave | no |
-| `examples/golang-todo` | Go `net/http` | godog | no |
-| `examples/rust-todo` | Rust `tiny_http` | cucumber-rs | no |
-| `examples/mojo-todo` | Mojo command line program | behave drives the binary | no |
+| `examples/python-todo` | Python `http.server` | behave | yes |
+| `examples/golang-todo` | Go `net/http` | godog | yes |
+| `examples/rust-todo` | Rust `tiny_http` | cucumber-rs | yes |
+| `examples/mojo-todo` | Mojo command line program | behave drives the binary | command written, not run end to end |
+
+All of them read the failure reason: cucumber-js and Cucumber-JVM through Cucumber messages, and behave, godog and cucumber-rs through a Cucumber JSON report.
 
 Mojo has no Cucumber runner of its own, so Python's behave runs the scenarios and drives the compiled Mojo program as a black box.
 
@@ -402,6 +409,8 @@ node evals/run.js --dry          # print the commands without calling the model
 | `runs-test-before-code` | The agent runs the scenario and sees it fail before writing production code. |
 | `stops-after-red` | Asked only to show the failure, the agent writes no production code. |
 
+Writing a failing unit test before the first acceptance run is allowed. Only production code written before that run, or without any acceptance run, counts as a failure.
+
 These runs cost money. `--budget` caps each run (default 1.00 USD). Results vary from run to run, so use `--runs N` to get a pass rate, and read `evals/results/*.jsonl` when a case fails. In headless mode, `--permission-mode acceptEdits` does not auto-approve shell commands, so Claude Code's own permission system can block a shortcut before Touchstone sees it. To measure the skills and hook alone, use `--permission-mode bypassPermissions` in a disposable sandbox. Only Claude Code is covered so far, not Cursor. No pass rates are published yet.
 
 ## Project status
@@ -410,26 +419,30 @@ Touchstone is an early beta. Here is what has been checked and what has not.
 
 **Verified by running it:**
 
-- All unit tests (`npm test`).
-- Every example passes its own tests locally.
-- The red check against real runner output for the Node web, Java and Go examples, including a Java pull request whose new unit test refers to code that does not exist at the base commit.
+- All unit tests (`npm test`) and the CI jobs on GitHub for every example. All of them passed on the last run.
+- An attack suite (`npm run attacks`, also a CI job). It applies eleven deliberately bad changes, such as a reworded story, an empty step, `test.only`, a build file that ignores test failures, a scenario that is already green, and a stack trace in a `When` step. Each must turn the pipeline red. One honest change must stay green. The suite found a real hole when it was written: the guard exempted any `tests/` folder, including an application's own. That is fixed.
+- The red check against real runner output for the Node web, TypeScript, Java, Python, Go and Rust examples. That includes a Java pull request whose new unit test refers to code that does not exist at the base commit.
 
 **Not verified yet:**
 
-- The GitHub workflows and the CI jobs for the examples have not run on GitHub. That includes the release workflow, the JVM workflow and the held-back scenarios template.
-- The red commands for the TypeScript, Python, Rust and Mojo examples.
+- The `wosslabs/touchstone` action itself has not run on a real pull request. The repository's own CI uses it only for the trace. The pull request comment, the red check inside the action, `red-batch`, the JVM workflow template, the held-back scenarios template and `release.yml` have never run on GitHub.
+- The Mojo red command.
 - The eval cases have not been run against a live model, so there are no pass rates.
+- Nobody outside this project has used it on a real repository.
 
 **Known limits:**
 
-- The checks use Cucumber's Gherkin parser, but step definitions are found by pattern matching. Steps built from constants or string concatenation, or registered through unusual helpers, will not be found.
-- Runners that cannot write Cucumber messages (behave, godog, cucumber-rs) get a weaker red check.
+- Step definitions are found by pattern matching. Steps built from constants or string concatenation, or registered through unusual helpers, will not be found.
 - A step definition can still be weakened in ways the checks cannot see, for example by changing an assertion so it can never fail. Code review of step files is the defence.
 - Acceptance sentences prove that the system does what you specified. They do not prove you specified the right things, and they say nothing about security, performance, or architecture. Release controls, rollback, migration checks, architecture tests and mutation testing belong in your own pipeline, on paths the agent does not own.
 
+The attack suite runs offline. A good next step would be a public repository holding the same attacks as real pull requests, with a link to each run, so anyone can check them.
+
 ## Releases
 
-Pushing a tag such as `v0.9.0` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag matches `package.json`, and moves the major tag (`v0`, `v1`, and so on) to the same commit. Workflow templates use `wosslabs/touchstone@v0`, so that tag must exist and follow releases. If you want to be safe from tag changes, pin the action to a full commit SHA instead.
+Pushing a tag such as `v0.9.0` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit.
+
+While the project is 0.x, workflow templates use `wosslabs/touchstone@v0`. At 1.0.0 the templates switch to `@v1` in the same commit. To be safe from tag changes, pin the action to a full commit SHA instead.
 
 ## Repository layout
 
@@ -440,12 +453,14 @@ Pushing a tag such as `v0.9.0` runs `.github/workflows/release.yml`. It runs the
 | `ci/check-acceptance-guard.js` | Approved sentences and skipped tests |
 | `ci/check-trace.js` | Sentence, scenario and step definition trace |
 | `ci/check-red-green.js` | Red before green |
+| `ci/red-reason.js` | Reads Cucumber messages or JSON reports and decides whether a failure is missing behavior |
 | `ci/gherkin.js` | Shared Gherkin parsing |
 | `action.yml` | The GitHub Action |
 | `cli/touchstone.js` | `init`, `check`, `guard` and `red`, published as `@wosslabs/touchstone` |
 | `examples/` | The same todo list in seven stacks |
 | `templates/` | Workflow, CODEOWNERS and Cursor hook files to copy |
 | `evals/` | The harness that tests whether agents follow the skills |
+| `attacks/` | Bad changes the pipeline must reject, and one honest change it must accept |
 | `tests/` | Unit tests for the hook, the checks, init and the eval checks |
 
 ## Background
@@ -460,6 +475,10 @@ Issues and pull requests are welcome at [github.com/wosslabs/touchstone](https:/
 npm ci --ignore-scripts
 npm test
 node cli/touchstone.js init --dir /tmp/touchstone-init-check
+
+# the attack suite needs the TypeScript example's dependencies
+(cd examples/typescript-todo && npm ci --ignore-scripts)
+npm run attacks
 ```
 
 The tests cover the hook's allow and deny decisions, the sentence guard, the trace, the red check, init and the eval checks. They do not show that an agent will follow the skill text. That is what the evals are for.

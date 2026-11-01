@@ -8,7 +8,7 @@ cargo test --test acceptance          # scenarios
 npx @wosslabs/touchstone check
 ```
 
-cucumber-rs does not write Cucumber messages, so the red check accepts any failing run (`red-reason-unchecked`). `--name` takes a regex:
+When `TOUCHSTONE_MESSAGES` is set, `features/acceptance.rs` also writes a Cucumber JSON report there (the `output-json` feature of the `cucumber` crate), so the red check can tell an assertion failure from a broken test. `--name` takes a regex:
 
 ```yaml
 - uses: dtolnay/rust-toolchain@stable
@@ -17,5 +17,4 @@ cucumber-rs does not write Cucumber messages, so the red check accepts any faili
     base: ${{ github.event.pull_request.base.sha }}
     command: cargo test --test acceptance
     red-command: cargo test --test acceptance -- --name "$TOUCHSTONE_SCENARIO"
-    red-reason-unchecked: "true"
 ```

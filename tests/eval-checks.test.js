@@ -92,3 +92,24 @@ test("production code written before any test run fails", () => {
   assert.equal(testBeforeCode(onlyFeatures), "");
   assert.equal(evaluate({ testBeforeCode: true }, none, early).length, 1);
 });
+
+test("a unit test written before the first acceptance run is not production code", () => {
+  const write = (path) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "Write", input: { file_path: path } }] } });
+  const run = (command) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { command } }] } });
+  const tdd = transcriptOf(
+    run("npx cucumber-js --strict"),
+    write("/w/tests/tasks.test.ts"),
+    write("/w/src/test/java/example/TaskListTest.java"),
+    write("/w/src/tasks.ts"),
+  );
+  assert.equal(testBeforeCode(tdd), "");
+  const unitTestWritten = transcriptOf(write("/w/tests/tasks.test.ts"), run("npx cucumber-js"), write("/w/src/tasks.ts"));
+  assert.equal(testBeforeCode(unitTestWritten), "");
+});
+
+test("a unit test run does not count as the acceptance run", () => {
+  const write = (path) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "Write", input: { file_path: path } }] } });
+  const run = (command) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { command } }] } });
+  assert.match(testBeforeCode(transcriptOf(run("npm test"), write("/w/src/tasks.ts"))), /never ran/);
+  assert.equal(testBeforeCode(transcriptOf(run("./mvnw -B verify"), write("/w/src/main/java/A.java"))), "");
+});

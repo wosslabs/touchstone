@@ -8,7 +8,7 @@ uv run --group dev behave                                  # scenarios in featur
 npx @wosslabs/touchstone check
 ```
 
-behave cannot write Cucumber messages, so the red check cannot read the failure reason. It accepts any failing run and skips the green run (`red-reason-unchecked`):
+behave writes a Cucumber-style JSON report, so the red check can tell an assertion failure from a broken test:
 
 ```yaml
 - uses: astral-sh/setup-uv@v5
@@ -16,6 +16,5 @@ behave cannot write Cucumber messages, so the red check cannot read the failure 
   with:
     base: ${{ github.event.pull_request.base.sha }}
     command: uv run --group dev behave
-    red-command: uv run --group dev behave --name "$TOUCHSTONE_SCENARIO"
-    red-reason-unchecked: "true"
+    red-command: uv run --group dev behave --name "$TOUCHSTONE_SCENARIO" -f json -o "$TOUCHSTONE_MESSAGES" -f pretty
 ```

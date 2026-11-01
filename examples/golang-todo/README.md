@@ -8,7 +8,7 @@ go test ./features/...     # scenarios
 npx @wosslabs/touchstone check
 ```
 
-godog has no Cucumber-messages output, so the red check accepts any failing run (`red-reason-unchecked`). godog runs each scenario as a subtest named with underscores, which is how the red command selects one:
+When `TOUCHSTONE_MESSAGES` is set, `features/acceptance_test.go` also writes a Cucumber JSON report there, so the red check can tell an assertion failure from a broken test. godog runs each scenario as a subtest named with underscores, which is how the red command selects one:
 
 ```yaml
 - uses: actions/setup-go@v5
@@ -19,5 +19,4 @@ godog has no Cucumber-messages output, so the red check accepts any failing run 
     base: ${{ github.event.pull_request.base.sha }}
     command: go test ./features/...
     red-command: go test ./features/ -run "TestFeatures/^$(printf '%s' "$TOUCHSTONE_SCENARIO_TITLE" | tr ' ' _)\$"
-    red-reason-unchecked: "true"
 ```

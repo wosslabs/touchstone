@@ -114,3 +114,17 @@ jobs:
             echo "== $example"
             node ci/check-trace.js --repo "examples/$example"
           done
+  attacks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts
+        working-directory: examples/typescript-todo
+      - name: Every attack must turn the pipeline red
+        run: npm run attacks
