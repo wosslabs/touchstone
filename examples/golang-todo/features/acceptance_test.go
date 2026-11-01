@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"slices"
 	"testing"
 
@@ -98,10 +99,14 @@ func initializeScenario(sc *godog.ScenarioContext) {
 }
 
 func TestFeatures(t *testing.T) {
+	format := "pretty"
+	if report := os.Getenv("TOUCHSTONE_MESSAGES"); report != "" {
+		format = "pretty,cucumber:" + report
+	}
 	suite := godog.TestSuite{
 		ScenarioInitializer: initializeScenario,
 		Options: &godog.Options{
-			Format:   "pretty",
+			Format:   format,
 			Paths:    []string{"."},
 			Strict:   true,
 			TestingT: t,

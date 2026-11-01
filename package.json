@@ -12,6 +12,7 @@
     "ci/check-trace.js",
     "ci/gherkin.js",
     "ci/check-red-green.js",
+    "ci/red-reason.js",
     "hooks/protect-acceptance.js",
     "templates/"
   ],
@@ -22,7 +23,8 @@
   },
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "eval": "node evals/run.js"
+    "eval": "node evals/run.js",
+    "attacks": "node attacks/run.js"
   },
   "engines": {
     "node": ">=18"

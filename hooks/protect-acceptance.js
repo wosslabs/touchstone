@@ -8,7 +8,7 @@ const SHELL_TOOLS = new Set(["bash", "shell"]);
 const WRITE_HINTS = /(?:^|[;&|]\s*)(?:rm|mv|cp|tee|touch|mkdir|truncate|dd|unlink)\b|\bfind\b[^\n]*\s-(?:delete|exec|execdir|fprint|fprintf|fls|ok|okdir)\b|\bsed\b[^\n]*\s-[^\n]*i|\bperl\b[^\n]*\s-[^\n]*i|\bgit\s+(?:checkout|restore|clean|apply|am)\b/i;
 const READ_OR_TEST = /(?:^|[;&|]\s*)(?:cat|ls|rg|grep|head|tail|wc|bat|less|stat|file|find|git\s+(?:diff|show|log|status|blame)|pytest|mvn|mvnw|gradle|gradlew|npm\s+test|npm\s+run\s+acceptance|pnpm\s+test|yarn\s+test|npx\s+cucumber-js|node\s+ci\/check-(?:acceptance-guard|trace)\.js|go\s+test|cargo\s+test|bun\s+test)\b/i;
 const PROTECTED_DIRS = ["stories", ".github/workflows", ".claude", ".cursor/hooks"];
-const PROTECTED_FILES = ["ci/check-acceptance-guard.js", "ci/check-trace.js", "ci/check-red-green.js", "CODEOWNERS"];
+const PROTECTED_FILES = ["ci/check-acceptance-guard.js", "ci/check-trace.js", "ci/check-red-green.js", "ci/red-reason.js", "ci/gherkin.js", "CODEOWNERS"];
 
 function isProtected(path) {
   let normalized = path.replaceAll("\\", "/");

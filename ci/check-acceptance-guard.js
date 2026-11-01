@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 const ALLOW_DROP = "Touchstone-Allow-Drop:";
 const SKIP = new RegExp(
@@ -23,6 +24,12 @@ const SKIP = new RegExp(
     "unittest\\.skip",
     "assumeTrue\\s*\\(\\s*false\\s*\\)",
     "\\bt\\.Skip\\s*\\(",
+    "testFailureIgnore",
+    "<skipTests>\\s*true",
+    "<skip>\\s*true",
+    "maven\\.test\\.skip",
+    "ignoreFailures\\s*[=:]?\\s*true",
+    "continue-on-error:\\s*true",
   ].join("|"),
 );
 const IGNORED_PREFIXES = [
@@ -113,12 +120,19 @@ function markerCount(text) {
   return (text.match(new RegExp(`^\\s*${ALLOW_DROP}`, "gm")) || []).length;
 }
 
+// Touchstone's own tests and templates mention skip markers on purpose. They are
+// exempt only inside Touchstone's repository, never in an application's.
+function ignoredPrefixes(cwd) {
+  return existsSync(join(cwd, "ci", "check-acceptance-guard.js")) ? IGNORED_PREFIXES : [];
+}
+
 function addedSkipLines(cwd, base) {
   let diff = git(cwd, ["diff", "--unified=0", `${base}...HEAD`]);
   if (!diff) {
     diff = git(cwd, ["diff", "--unified=0", base, "HEAD"]);
   }
   const hits = [];
+  const ignored = ignoredPrefixes(cwd);
   let current = "";
   for (const line of diff.split("\n")) {
     if (line.startsWith("+++ b/")) {
@@ -128,7 +142,7 @@ function addedSkipLines(cwd, base) {
     if (!line.startsWith("+") || line.startsWith("+++")) {
       continue;
     }
-    if (IGNORED_PREFIXES.some((prefix) => current.startsWith(prefix))) {
+    if (ignored.some((prefix) => current.startsWith(prefix))) {
       continue;
     }
     const added = line.slice(1);

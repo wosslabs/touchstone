@@ -69,8 +69,12 @@ export function toolWrites(transcript) {
   return writes;
 }
 
-const TEST_RUN = /\b(?:cucumber-js|cucumber|mvnw?|gradlew?|pytest|behave|godog|go\s+test|cargo\s+test|npm\s+(?:run\s+)?(?:test|acceptance)|pnpm\s+(?:run\s+)?test|yarn\s+test)\b/i;
+// Only a run of the acceptance scenarios counts as "the test run". A unit test
+// run (pytest, npm test, go test ./tasks) does not show the sentence failing.
+const ACCEPTANCE_RUN = /\b(?:cucumber(?:-js)?|behave|godog|acceptance|failsafe)\b|\bmvnw?\s+(?:-\S+\s+)*verify\b|go\s+test\s+\.\/features|cargo\s+test\s+--test\s+acceptance/i;
 const NOT_PRODUCTION = ["drafts/", "stories/", "features/", "evals/"];
+// Writing a failing unit test first is what touchstone-build asks for.
+const TEST_FILE = /(?:^|\/)(?:tests?|__tests__|spec|src\/test|src\/acceptanceTest)\/|\.(?:test|spec)\.[a-z]+$|_test\.go$|(?:^|\/)test_[^/]*\.py$|Tests?\.(?:java|kt)$/;
 
 // The agent's tool calls in order: writes with their path, shell commands with
 // their text. Reads and searches are left out.
@@ -104,13 +108,13 @@ export function toolEvents(transcript) {
 
 function isProduction(path, root) {
   const relative = root && path.startsWith(root) ? path.slice(root.length).replace(/^\//, "") : path.replace(/^.*?(?=(?:drafts|stories|features|evals)\/)/, "");
-  return !NOT_PRODUCTION.some((prefix) => relative.startsWith(prefix));
+  return !NOT_PRODUCTION.some((prefix) => relative.startsWith(prefix)) && !TEST_FILE.test(relative);
 }
 
 // Returns a failure message, or "" when a test run came before any production code.
 export function testBeforeCode(transcript) {
   const events = toolEvents(transcript);
-  const firstRun = events.findIndex((event) => event.kind === "run" && TEST_RUN.test(event.command));
+  const firstRun = events.findIndex((event) => event.kind === "run" && ACCEPTANCE_RUN.test(event.command));
   const firstCode = events.findIndex((event) => event.kind === "write" && isProduction(event.path));
   if (firstCode === -1) {
     return "";

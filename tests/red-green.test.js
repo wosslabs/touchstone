@@ -105,7 +105,7 @@ function messages(...entries) {
     testStepFinished: { testStepId: id, testStepResult: { status, ...(text ? { message: text } : {}) } },
   });
   const lines = [
-    { pickle: { id: "p", steps: [{ id: "g", type: "Context" }, { id: "w", type: "Action" }, { id: "t", type: "Outcome" }] } },
+    { pickle: { id: "p", name: "Declined card", steps: [{ id: "g", type: "Context" }, { id: "w", type: "Action" }, { id: "t", type: "Outcome" }] } },
     {
       testCase: {
         id: "c",
@@ -213,4 +213,124 @@ test("copies extra overlay paths", () => {
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
+});
+
+// Reports from runners that write Cucumber JSON (godog, behave, cucumber-rs).
+function report(...scenarios) {
+  return JSON.stringify([{ name: "Pay", elements: scenarios }]);
+}
+
+function scenarioOf(name, steps) {
+  return {
+    type: "scenario",
+    name,
+    steps: steps.map(([keyword, status, error]) => ({
+      keyword: `${keyword} `,
+      name: "x",
+      result: { status, ...(error ? { error_message: error } : {}) },
+    })),
+  };
+}
+
+function runReport(json, extra = []) {
+  const repo = repoWithBase();
+  try {
+    writeFileSync(join(repo, "done.txt"), "built\n");
+    commitFile(repo, "features/pay.feature", feature, "scenario and production change");
+    git(repo, ["add", "done.txt"]);
+    git(repo, ["commit", "--amend", "--no-edit"]);
+    const body = json.replaceAll("'", "'\\''");
+    const command = `printf '%s' '${body}' > "$TOUCHSTONE_MESSAGES"; test -f done.txt`;
+    return spawnSync("node", [script, "--repo", repo, "--base", "HEAD~1", "--command", command, ...extra], { cwd: repo, encoding: "utf8" });
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+}
+
+test("reads a Cucumber JSON report: an assertion failure at a Then is red", () => {
+  const result = runReport(report(scenarioOf("Declined card", [["Given", "passed"], ["When", "passed"], ["Then", "failed", "expected 1 to equal 2"]])));
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
+test("reads a Cucumber JSON report: a programming error is not red", () => {
+  const result = runReport(report(scenarioOf("Declined card", [["Given", "passed"], ["When", "failed", "TypeError: x is not a function"], ["Then", "skipped"]])));
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /programming or environment error/);
+});
+
+test("reads a Cucumber JSON report: a failing And after a Given is a setup error", () => {
+  const result = runReport(report(scenarioOf("Declined card", [["Given", "passed"], ["And", "failed", "boom"], ["When", "skipped"], ["Then", "skipped"]])));
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /Given or hook/);
+});
+
+test("reads a behave JSON report with step_type and error lines", () => {
+  const behave = JSON.stringify([
+    {
+      elements: [
+        {
+          type: "scenario",
+          name: "Declined card",
+          steps: [
+            { keyword: "Given", step_type: "given", result: { status: "passed" } },
+            { keyword: "When", step_type: "when", result: { status: "failed", error_message: ["Assertion Failed: expected 404 to equal 201", "Traceback"] } },
+            { keyword: "Then", step_type: "then", result: { status: "skipped" } },
+          ],
+        },
+      ],
+    },
+  ]);
+  assert.equal(runReport(behave).status, 0);
+});
+
+test("an undefined step in a JSON report is not red", () => {
+  const result = runReport(report(scenarioOf("Declined card", [["Given", "passed"], ["When", "undefined"], ["Then", "skipped"]])));
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /undefined/);
+});
+
+test("a report with no matching scenario is not red", () => {
+  const result = runReport(report(scenarioOf("Some other scenario", [["Given", "passed"], ["Then", "failed", "x"]])));
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /no scenario with this title ran/);
+});
+
+test("batch mode runs every changed scenario once and attributes failures", () => {
+  const twoScenarios = `Feature: Pay
+
+  Scenario: Declined card
+    Given the bank declines the card
+    Then the customer is not charged
+
+  Scenario: Expired card
+    Given the card expired
+    Then the customer is not charged
+`;
+  const run = (secondStatus) => {
+    const repo = repoWithBase();
+    try {
+      writeFileSync(join(repo, "done.txt"), "built\n");
+      commitFile(repo, "features/pay.feature", twoScenarios, "scenarios and production change");
+      git(repo, ["add", "done.txt"]);
+      git(repo, ["commit", "--amend", "--no-edit"]);
+      const json = report(
+        scenarioOf("Declined card", [["Given", "passed"], ["Then", "failed", "expected a"]]),
+        scenarioOf("Expired card", [["Given", "passed"], ["Then", secondStatus, "expected b"]]),
+      ).replaceAll("'", "'\\''");
+      const counter = join(repo, "runs.txt");
+      const command = `echo run >> "${counter}"; printf '%s' '${json}' > "$TOUCHSTONE_MESSAGES"; test -f done.txt`;
+      const result = spawnSync("node", [script, "--repo", repo, "--base", "HEAD~1", "--command", command, "--batch"], { cwd: repo, encoding: "utf8" });
+      const runs = spawnSync("wc", ["-l", counter], { encoding: "utf8" }).stdout.trim().split(/\s+/)[0];
+      return { result, runs };
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  };
+  const good = run("failed");
+  assert.equal(good.result.status, 0, good.result.stdout);
+  assert.equal(good.runs, "2", "one run at the base, one with the pull request code");
+  const bad = run("passed");
+  assert.equal(bad.result.status, 1, bad.result.stdout);
+  assert.match(bad.result.stdout, /Expired card: no step failed/);
+  assert.doesNotMatch(bad.result.stdout, /Declined card: /);
 });

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { scenariosIn } from "./gherkin.js";
+import { classifyCase, parseCases } from "./red-reason.js";
 
 const DEFAULT_OVERLAY = ["features", "stories", "src/acceptanceTest"];
 
@@ -78,86 +79,31 @@ function overlayHead(repo, work, overlay) {
   }
 }
 
-// Errors that mean the test code or its environment is broken, not that the
-// behavior is missing.
-const PROGRAMMING_ERROR = new RegExp(
-  [
-    "ReferenceError",
-    "TypeError",
-    "SyntaxError",
-    "NoSuchMethod(?:Error|Exception)",
-    "NoSuchField(?:Error|Exception)",
-    "ClassNotFoundException",
-    "NoClassDefFoundError",
-    "LinkageError",
-    "cannot find symbol",
-    "compilation (?:error|failure)",
-    "ModuleNotFoundError",
-    "ImportError",
-    "AttributeError",
-    "NameError",
-    "ECONNREFUSED",
-    "Connection refused",
-    "ConnectException",
-    "is not a function",
-    "Cannot read propert",
-    "undefined reference",
-    "panicked at .*(?:index out of bounds|unwrap\\(\\) on a `None`)",
-  ].join("|"),
-  "i",
-);
-
-function errorText(result) {
-  return [result.exception?.type, result.exception?.message, result.message].filter(Boolean).join(" ");
-}
-
-// Reads Cucumber message output. Returns why the run is not a valid red, or "".
-// Valid: a When or Then step fails with an assertion-style error (a missing
-// element, a 404, a wrong value), and nothing is undefined, pending, ambiguous,
-// or broken by a programming error.
-export function classifyRed(text) {
-  const stepTypes = new Map();
-  const testSteps = new Map();
-  const results = [];
-  for (const line of text.split("\n")) {
-    let message;
-    try {
-      message = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    for (const step of message.pickle?.steps || []) {
-      stepTypes.set(step.id, step.type);
-    }
-    for (const step of message.testCase?.testSteps || []) {
-      testSteps.set(step.id, step.pickleStepId || "");
-    }
-    if (message.testStepFinished) {
-      results.push([message.testStepFinished.testStepId, message.testStepFinished.testStepResult || {}]);
-    }
+// Why the run of one scenario (all its example rows) is not a valid red, or "".
+function reasonFor(title, text) {
+  const pattern = new RegExp(titlePattern(title));
+  let cases;
+  try {
+    cases = parseCases(text);
+  } catch (error) {
+    return `the test report could not be read: ${error.message}`;
   }
-  if (results.length === 0) {
-    return "no scenario ran, so nothing failed for the right reason";
+  const matching = cases.filter((testCase) => pattern.test(testCase.name));
+  if (matching.length === 0) {
+    return "no scenario with this title ran, so nothing failed for the right reason";
   }
-  const broken = results.filter(([, result]) => ["UNDEFINED", "PENDING", "AMBIGUOUS"].includes(result.status));
-  if (broken.length) {
-    return `a step is ${broken[0][1].status.toLowerCase()}: that is a programming error, not missing behavior`;
-  }
-  const failed = results.filter(([, result]) => result.status === "FAILED");
-  if (failed.length === 0) {
-    return "no step failed";
-  }
-  for (const [id, result] of failed) {
-    const type = stepTypes.get(testSteps.get(id));
-    if (type !== "Action" && type !== "Outcome") {
-      return "a Given or hook step failed: the system could not reach the starting state, which is a setup error, not missing behavior";
-    }
-    const text = errorText(result);
-    if (PROGRAMMING_ERROR.test(text)) {
-      return `a step failed with a programming or environment error, not missing behavior: ${text.split("\n")[0].slice(0, 160)}`;
+  for (const testCase of matching) {
+    const reason = classifyCase(testCase);
+    if (reason) {
+      return reason;
     }
   }
   return "";
+}
+
+// One pattern that selects every scenario in the group.
+function groupPattern(titles) {
+  return titles.length === 1 ? titlePattern(titles[0]) : titles.map((title) => `(?:${titlePattern(title)})`).join("|");
 }
 
 function run(command, cwd, env) {
@@ -170,6 +116,7 @@ function main() {
   const setup = option("--setup");
   const base = option("--base");
   const anyFailure = process.argv.includes("--any-failure");
+  const batch = process.argv.includes("--batch");
   const extra = option("--overlay").split(",").map((path) => path.trim()).filter(Boolean);
   const overlay = [...new Set([...DEFAULT_OVERLAY, ...extra])];
   if (!command) {
@@ -185,6 +132,11 @@ function main() {
     console.log("red check: no new or changed scenarios");
     return 0;
   }
+  // --batch runs every changed scenario in one pass per phase (one Spring boot,
+  // one browser launch). The runner must accept a regular expression with
+  // alternation in $TOUCHSTONE_SCENARIO. It needs per-scenario results to
+  // attribute failures, so it is ignored with --any-failure.
+  const groups = batch && !anyFailure ? [changed] : changed.map((title) => [title]);
   const work = mkdtempSync(join(tmpdir(), "touchstone-red-"));
   const failures = [];
   try {
@@ -194,23 +146,28 @@ function main() {
       console.error("red check: setup failed in the base checkout");
       return 1;
     }
-    for (const title of changed) {
-      console.log(`red check: "${title}" must fail against the base production code`);
-      const messages = join(work, ".touchstone-messages.ndjson");
+    for (const group of groups) {
+      console.log(`red check: ${group.map((title) => `"${title}"`).join(", ")} must fail against the base production code`);
+      const messages = join(work, ".touchstone-messages");
       rmSync(messages, { force: true });
       const result = run(command, work, {
-        TOUCHSTONE_SCENARIO: titlePattern(title),
-        TOUCHSTONE_SCENARIO_TITLE: title,
+        TOUCHSTONE_SCENARIO: groupPattern(group),
+        TOUCHSTONE_SCENARIO_TITLE: group.join(" | "),
         TOUCHSTONE_MESSAGES: messages,
       });
       if (result.status === 0) {
-        failures.push(`${title}: passed against the base production code`);
+        failures.push(...group.map((title) => `${title}: passed against the base production code`));
       } else if (!anyFailure) {
-        const reason = existsSync(messages)
-          ? classifyRed(readFileSync(messages, "utf8"))
-          : "the command wrote no Cucumber messages to $TOUCHSTONE_MESSAGES, so the reason for the failure is unknown";
-        if (reason) {
-          failures.push(`${title}: ${reason}`);
+        if (!existsSync(messages)) {
+          failures.push(...group.map((title) => `${title}: the command wrote no Cucumber messages or JSON report to $TOUCHSTONE_MESSAGES, so the reason for the failure is unknown`));
+          continue;
+        }
+        const text = readFileSync(messages, "utf8");
+        for (const title of group) {
+          const reason = reasonFor(title, text);
+          if (reason) {
+            failures.push(`${title}: ${reason}`);
+          }
         }
       }
     }
@@ -221,15 +178,15 @@ function main() {
   if (!anyFailure && failures.length === 0) {
     const head = mkdtempSync(join(tmpdir(), "touchstone-green-"));
     try {
-      for (const title of changed) {
-        console.log(`red check: "${title}" must pass against the pull request code`);
+      for (const group of groups) {
+        console.log(`red check: ${group.map((title) => `"${title}"`).join(", ")} must pass against the pull request code`);
         const result = run(command, repo, {
-          TOUCHSTONE_SCENARIO: titlePattern(title),
-          TOUCHSTONE_SCENARIO_TITLE: title,
-          TOUCHSTONE_MESSAGES: join(head, "messages.ndjson"),
+          TOUCHSTONE_SCENARIO: groupPattern(group),
+          TOUCHSTONE_SCENARIO_TITLE: group.join(" | "),
+          TOUCHSTONE_MESSAGES: join(head, "messages"),
         });
         if (result.status !== 0) {
-          failures.push(`${title}: fails against the pull request code too, so it never went green`);
+          failures.push(...group.map((title) => `${title}: fails against the pull request code too, so it never went green`));
         }
       }
     } finally {

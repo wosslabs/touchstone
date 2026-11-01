@@ -1,4 +1,4 @@
-use cucumber::{given, then, when, World};
+use cucumber::{given, then, when, writer, World, WriterExt};
 use touchstone_rust_todo::server::{self, Running};
 
 // Acceptance steps talk to the running service over HTTP only.
@@ -61,8 +61,21 @@ async fn the_list_shows(world: &mut TodoWorld, title: String) {
 
 #[tokio::main]
 async fn main() {
-    TodoWorld::cucumber()
-        .fail_on_skipped()
-        .run_and_exit("features")
-        .await;
+    // With TOUCHSTONE_MESSAGES set, write a Cucumber JSON report there so the
+    // red check can tell an assertion failure from a broken test.
+    if let Ok(path) = std::env::var("TOUCHSTONE_MESSAGES") {
+        let file = std::fs::File::create(path).expect("create the report file");
+        TodoWorld::cucumber()
+            .max_concurrent_scenarios(1)
+            .fail_on_skipped()
+            .with_writer(
+                writer::Basic::stdout()
+                    .tee::<TodoWorld, _>(writer::Json::for_tee(file))
+                    .summarized()
+                    .normalized(),
+            )
+            .run_and_exit("features")
+            .await;
+    }
+    TodoWorld::cucumber().fail_on_skipped().run_and_exit("features").await;
 }
