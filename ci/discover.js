@@ -197,7 +197,7 @@ export function discover(root) {
     });
   }
   return {
-    root: resolve(root),
+    root: ".",
     files,
     buildFiles,
     modules: [...modules.values()].sort((a, b) => b.lines - a.lines),

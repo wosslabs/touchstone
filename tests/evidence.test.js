@@ -127,3 +127,29 @@ test("does nothing when there are no draft features", () => {
   assert.equal(result.status, 0, result.stdout);
   assert.match(result.stdout, /no feature files/);
 });
+
+test("evidence for one route does not cover the routes written before it", () => {
+  const inventory = JSON.stringify({
+    entries: [
+      { kind: "http-route", method: "GET", name: "/orders", file: "src/Orders.java", line: 10 },
+      { kind: "http-route", method: "GET", name: "/orders/:id", file: "src/Orders.java", line: 16 },
+      { kind: "http-route", method: "POST", name: "/orders", file: "src/Orders.java", line: 20 },
+    ],
+  });
+  const result = check({
+    "drafts/discovery/inventory.json": inventory,
+    "drafts/legacy/orders.feature": feature(scenario("@evidence:src/Orders.java:22-30")),
+  });
+  assert.match(result.stdout, /Entry points covered: 1 of 3/);
+  assert.match(result.stdout, /GET \/orders\/:id/);
+  assert.doesNotMatch(result.stdout, /POST \/orders`/);
+});
+
+test("a pointer that includes the route line covers it", () => {
+  const inventory = JSON.stringify({ entries: [{ kind: "http-route", method: "GET", name: "/orders", file: "src/Orders.java", line: 10 }] });
+  const result = check({
+    "drafts/discovery/inventory.json": inventory,
+    "drafts/legacy/orders.feature": feature(scenario("@evidence:src/Orders.java:8-14")),
+  });
+  assert.match(result.stdout, /Entry points covered: 1 of 1/);
+});

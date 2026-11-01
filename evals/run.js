@@ -20,11 +20,17 @@ function option(name, fallback = "") {
   return index === -1 || index + 1 >= process.argv.length ? fallback : process.argv[index + 1];
 }
 
+const cli = join(packageRoot, "cli", "touchstone.js");
+const fill = (text) => text.replaceAll("{{touchstone}}", `node ${cli}`);
+
 function prepare(testCase) {
   const work = mkdtempSync(join(tmpdir(), `touchstone-eval-${testCase.name}-`));
   cpSync(join(packageRoot, testCase.fixture), work, {
     recursive: true,
-    filter: (source) => !source.includes("node_modules") && !source.includes("__pycache__"),
+    filter: (source) => {
+      const relative = source.slice(join(packageRoot, testCase.fixture).length).replace(/^\//, "");
+      return !source.includes("node_modules") && !source.includes("__pycache__") && !(testCase.exclude || []).some((path) => relative === path || relative.startsWith(`${path}/`));
+    },
   });
   const modules = join(packageRoot, testCase.fixture, "node_modules");
   if (existsSync(modules)) {
@@ -42,7 +48,7 @@ function prepare(testCase) {
 
 function command(testCase, budget, mode) {
   return [
-    "-p", testCase.prompt,
+    "-p", fill(testCase.prompt),
     "--plugin-dir", packageRoot,
     "--permission-mode", mode,
     "--output-format", "stream-json",
@@ -84,6 +90,14 @@ function main() {
       const failures = result.error
         ? [`could not run claude: ${result.error.message}`]
         : evaluate(testCase.expect, changes(before, snapshot(work)), transcript);
+      // Commands that must succeed once the session is over, for example the
+      // evidence check and the run of the scenarios the agent wrote.
+      for (const check of result.error ? [] : testCase.expect.commands || []) {
+        const outcome = spawnSync(fill(check.run), { cwd: work, shell: true, encoding: "utf8" });
+        if (outcome.status !== 0) {
+          failures.push(`${check.name} failed: ${`${outcome.stdout}${outcome.stderr}`.trim().split("\n").slice(-3).join(" | ")}`);
+        }
+      }
       writeFileSync(join(results, `${testCase.name}-${run}.jsonl`), transcript);
       if (failures.length) {
         reasons.push(`run ${run}: ${failures.join("; ")}`);

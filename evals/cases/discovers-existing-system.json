@@ -1,0 +1,32 @@
+{
+  "name": "discovers-existing-system",
+  "description": "Asked to write down what an old service does, the agent leaves the code and stories/ alone, writes scenarios with evidence under drafts/legacy, and the evidence check and its own scenarios pass afterwards.",
+  "fixture": "examples/legacy-orders",
+  "exclude": [
+    "drafts",
+    "features",
+    "cucumber.legacy.js"
+  ],
+  "prompt": "This is an old order service nobody has documented. Write down what it does as business requirements, using the Touchstone workflow for existing code. Do the whole flow for the area 'creating, paying, shipping and refunding orders' through to REQUIREMENTS.md, then stop. The Touchstone command line is {{touchstone}} (it is not on npm yet). Cucumber is installed here.",
+  "expect": {
+    "protectedPaths": [
+      "src/",
+      "stories/"
+    ],
+    "mustCreateUnder": "drafts/legacy/",
+    "commands": [
+      {
+        "name": "evidence check",
+        "run": "{{touchstone}} evidence"
+      },
+      {
+        "name": "running the scenarios against the system",
+        "run": "npx cucumber-js --config cucumber.legacy.js"
+      },
+      {
+        "name": "requirements document exists",
+        "run": "test -s drafts/legacy/REQUIREMENTS.md"
+      }
+    ]
+  }
+}

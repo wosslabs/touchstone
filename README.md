@@ -25,6 +25,7 @@ Touchstone works with Claude Code, Cursor, and any agent that reads a `SKILL.md`
 - [Getting started](#getting-started)
 - [How a change works](#how-a-change-works)
 - [Installing the skills and hook](#installing-the-skills-and-hook)
+- [Existing code bases](#existing-code-bases)
 - [Setting up a repository](#setting-up-a-repository)
 - [What the pull request checks](#what-the-pull-request-checks)
 - [Examples by language](#examples-by-language)
@@ -96,6 +97,9 @@ You can run the same checks as the pull request on your own machine:
 | `npx @wosslabs/touchstone check` | Traces each approved sentence to its feature and step definitions. |
 | `npx @wosslabs/touchstone guard --base <sha>` | Fails if approved sentences were removed or reworded, or a test was switched off. |
 | `npx @wosslabs/touchstone red --base <sha> --command "..."` | Runs new scenarios against the base code and checks that they fail first. |
+| `npx @wosslabs/touchstone discover` | Lists the entry points of an existing code base (see [Existing code bases](#existing-code-bases)). |
+| `npx @wosslabs/touchstone evidence` | Checks that every sentence about an existing system points at real code. |
+| `npx @wosslabs/touchstone requirements` | Writes a plain requirements document from the checked sentences. |
 
 ## How a change works
 
@@ -254,7 +258,7 @@ templates/cursor-hooks.json   ->  .cursor/hooks.json
 
 ### The skills
 
-Five skills are installed together:
+Six skills are installed together:
 
 | Skill | When it applies |
 | --- | --- |
@@ -262,6 +266,7 @@ Five skills are installed together:
 | `touchstone-features` | The request is a product, a release, or more than one visible outcome |
 | `touchstone` | One feature is chosen and has no approved failing sentence yet |
 | `touchstone-build` | You have agreed that the failure is the missing behavior |
+| `touchstone-discover` | You want the requirements of an existing code base written down |
 | `touchstone-repair` | A run failed with a programming error, an undefined step, or an app that did not start |
 
 Touchstone is a complete workflow. If another workflow plugin is also installed, Touchstone still comes first, and planning starts only after the sentence has failed for the missing behavior.
@@ -271,6 +276,56 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 The hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, and Touchstone's own check scripts. It also blocks obvious shell writes such as `rm`, `mv`, redirects, and `find ... -delete`.
 
 The hook is a safety net, not a lock. A determined agent can get around it, for example by building a path inside a shell variable. The real controls are CODEOWNERS and branch protection, which the agent cannot bypass.
+
+## Existing code bases
+
+Most organizations do not start from nothing. They have a system that works, nobody wrote down what it does, and the people who knew have gone. Touchstone can read an existing code base and write down what it does, as simple business sentences, in the same Given, When, Then form used everywhere else. Each sentence is proved by running it against the system as it is today.
+
+This helps in three ways:
+
+- **Understanding.** A manager or analyst can read `REQUIREMENTS.md` without reading code.
+- **Organizing work.** Each area has a list of what it does, which parts are unclear, which look like bugs, and which are dead.
+- **Migrating.** The sentences drive the system from outside (over HTTP, a command line, a screen, or the database), not through its code. The same sentences can run against a rewritten system, in another language or stack. Only the step definitions change. A migration is finished when the old sentences pass on the new system.
+
+What this produces describes what the system does now. It is not what the business wants. A person decides that, and nothing here reaches `stories/` until a person puts it there.
+
+### The steps
+
+You ask the agent in the repository, for example: "Write down what this system does, starting with refunds." The `touchstone-discover` skill then works in this order:
+
+1. **Take stock (no model involved).** `touchstone discover` reads the code and lists every entry point: web routes, scheduled jobs, message consumers, commands, screens, database tables and procedures, COBOL programs. It also reports languages, sizes and build files. The result is `drafts/discovery/inventory.md` and `inventory.json`.
+2. **Pick one area.** The agent groups entry points into areas the business would recognize ("Refunds", not "RefundController") and asks which to do first.
+3. **Read downward.** For that area it follows each entry point through the code and writes down every rule, with the numbers exactly as the code has them, including the odd ones.
+4. **Write sentences** in `drafts/legacy/<area>.feature`, in business words, with tags that say how sure we are.
+5. **Make them run** against the real system through step definitions that drive it from outside.
+6. **They must pass.** This is red before green turned around: here green is the proof. A scenario that fails is wrong about the system, and the sentence is fixed, never the production code.
+7. **Check the proof.** `touchstone evidence` fails any scenario with no pointer to real code, and lists the entry points no scenario covers.
+8. **Write the document.** `touchstone requirements` produces `drafts/legacy/REQUIREMENTS.md`.
+
+Then you read, correct, answer the open questions, and choose the next area. When you accept a scenario, you copy it into `stories/` and its steps into `features/`, and the normal workflow protects it from then on.
+
+### Tags
+
+| Tag | Meaning |
+| --- | --- |
+| `@evidence:src/orders.js:68-76` | The lines of code that make this true. Required unless one of the tags below is used. A tag on the `Feature:` line applies to every scenario in it. |
+| `@suspected-bug` | The code does this, but it looks wrong (a quantity of zero counted as one, a threshold that is off by one). Described as it is, never repaired in the sentence. |
+| `@unclear` | The code does this, but its reason is not in the code. A person must say what the business wants. |
+| `@dead` | Nothing reaches this code. |
+
+### What the checks prove
+
+`touchstone evidence` fails when a scenario has neither evidence nor an honest label, when a pointer names a file outside the code base (including through a symbolic link) or a line that does not exist, when a title repeats, or when a file is not valid Gherkin. It also prints how many entry points are covered. `--require-coverage` turns uncovered entry points into a failure.
+
+Running the scenarios against the system proves they are true of its behavior. The evidence tags show where to look. Neither proves the system does what the business intended, and a reader should treat `@suspected-bug` and `@unclear` as questions, not answers.
+
+### Limits
+
+- Entry points are found by pattern matching on well-known frameworks (Spring, JAX-RS, Servlet, Express and similar, NestJS, Flask, FastAPI, Django, Go `net/http`, gin and echo, ASP.NET, Rails, Laravel, Rust web frameworks, Spring Kafka, RabbitMQ, JMS, SQS, Celery, cron, argparse, click, commander, cobra, React and Vue routes, SQL, JPA, Django models, COBOL, JCL). A system built on something else gets an inventory that says so, and the agent starts from the build files and the largest modules. Add patterns to `ci/discover.js` for your framework.
+- It is done one area at a time. A large system takes many rounds, and the coverage report shows how far you are.
+- Business rules hidden in the database, in configuration, or in another system are only found if the agent reads them. The inventory lists tables and procedures but does not read their logic.
+- Code, comments and documents in the code base are treated as untrusted text, and the skill tells the agent not to copy secrets or personal data into sentences or fixtures. That is guidance. Run it on a copy of the repository without production credentials.
+- `examples/legacy-orders` is a small, deliberately old-fashioned order service to try this on.
 
 ## Setting up a repository
 

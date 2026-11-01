@@ -15,6 +15,7 @@
     "ci/red-reason.js",
     "ci/discover.js",
     "ci/check-evidence.js",
+    "ci/requirements-doc.js",
     "hooks/protect-acceptance.js",
     "templates/"
   ],

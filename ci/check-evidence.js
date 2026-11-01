@@ -20,8 +20,8 @@ import { scenarioTagsIn } from "./gherkin.js";
 
 const EVIDENCE = /^@evidence:(.+?):(\d+)(?:-(\d+))?$/;
 const UNPROVEN_TAGS = ["@unclear", "@suspected-bug", "@dead"];
-// A route annotation sits above its handler. A pointer at the handler body
-// covers the route when it lands within this many lines.
+// A route sits above its handler. A pointer into the handler body covers the
+// route when it lands within this many lines and no other entry comes between.
 const NEARBY_LINES = 60;
 
 function option(name) {
@@ -78,14 +78,21 @@ export function resolveEvidence(root, tag, lineCounts = new Map()) {
   return [{ file: relative(root, absolute).split(sep).join("/"), start, end }, ""];
 }
 
-export function covers(reference, entry) {
+// An entry point is covered when a pointer's lines include the entry's own
+// line, or when the pointer lands in the entry's handler. A pointer belongs to
+// the nearest entry at or above it in the same file, so evidence for one route
+// does not quietly cover the routes written just before it.
+export function covers(reference, entry, entries = [entry]) {
   if (reference.file !== entry.file) {
     return false;
   }
   if (entry.line >= reference.start && entry.line <= reference.end) {
     return true;
   }
-  return reference.start > entry.line && reference.start - entry.line <= NEARBY_LINES;
+  if (reference.start < entry.line || reference.start - entry.line > NEARBY_LINES) {
+    return false;
+  }
+  return !entries.some((other) => other !== entry && other.file === entry.file && other.line > entry.line && other.line <= reference.start);
 }
 
 export function checkEvidence({ root, draftsDir, inventory }) {
@@ -131,7 +138,7 @@ export function checkEvidence({ root, draftsDir, inventory }) {
     }
   }
   const entries = inventory?.entries ?? [];
-  const uncovered = entries.filter((entry) => !references.some((reference) => covers(reference, entry)));
+  const uncovered = entries.filter((entry) => !references.some((reference) => covers(reference, entry, entries)));
   return { scenarios, problems, unproven, uncovered, entryCount: entries.length };
 }
 

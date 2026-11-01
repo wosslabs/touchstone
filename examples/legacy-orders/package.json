@@ -1,0 +1,12 @@
+{
+  "name": "touchstone-legacy-orders",
+  "private": true,
+  "description": "A small, deliberately old-fashioned order service. The target for reading requirements out of existing code.",
+  "scripts": {
+    "start": "node src/server.js",
+    "characterize": "cucumber-js --config cucumber.legacy.js"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.3.0"
+  }
+}
