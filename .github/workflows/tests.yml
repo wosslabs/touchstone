@@ -128,3 +128,18 @@ jobs:
         working-directory: examples/typescript-todo
       - name: Every attack must turn the pipeline red
         run: npm run attacks
+  legacy-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts
+        working-directory: examples/legacy-orders
+      - name: The sentences are true of the legacy service
+        run: npm run characterize
+        working-directory: examples/legacy-orders
+      - name: Every sentence points at real code
+        run: node ci/check-evidence.js --repo examples/legacy-orders
