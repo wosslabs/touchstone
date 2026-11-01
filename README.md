@@ -425,7 +425,7 @@ Touchstone is an early beta. Here is what has been checked and what has not.
 
 **Not verified yet:**
 
-- The `wosslabs/touchstone` action itself has not run on a real pull request. The repository's own CI uses it only for the trace. The pull request comment, the red check inside the action, `red-batch`, the JVM workflow template, the held-back scenarios template and `release.yml` have never run on GitHub.
+- The `wosslabs/touchstone` action itself has not run on a real pull request. The repository's own CI uses it only for the trace. The pull request comment, the red check inside the action, `red-batch`, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run once, for 0.9.0.
 - The Mojo red command.
 - The eval cases have not been run against a live model, so there are no pass rates.
 - Nobody outside this project has used it on a real repository.
