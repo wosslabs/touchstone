@@ -12,7 +12,7 @@ behave cannot write Cucumber messages, so the red check cannot read the failure 
 
 ```yaml
 - uses: astral-sh/setup-uv@v5
-- uses: wosslabs/touchstone@v1
+- uses: wosslabs/touchstone@v0
   with:
     base: ${{ github.event.pull_request.base.sha }}
     command: uv run --group dev behave

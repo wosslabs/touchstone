@@ -12,7 +12,7 @@ npx @wosslabs/touchstone check       # trace: sentence -> scenario -> step
 Full red check (reads Cucumber messages, so the failure reason is classified):
 
 ```yaml
-- uses: wosslabs/touchstone@v1
+- uses: wosslabs/touchstone@v0
   with:
     base: ${{ github.event.pull_request.base.sha }}
     setup: npm ci --ignore-scripts

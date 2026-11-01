@@ -36,7 +36,7 @@ jobs:
       # must not run before the verdict.
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
-      - uses: wosslabs/touchstone@v1
+      - uses: wosslabs/touchstone@v0
         with:
           command: npx cucumber-js --strict
           setup: npm ci --ignore-scripts

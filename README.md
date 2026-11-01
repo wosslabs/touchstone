@@ -277,7 +277,7 @@ The hook is a safety net, not a lock. A determined agent can get around it, for 
 `npx @wosslabs/touchstone init` does the first part of this for you. You still need to replace the team name in CODEOWNERS and install your browser or runtime.
 
 1. **Keep approved sentences in `stories/`.** Markdown and `.feature` files both work. The agent may draft in `drafts/`. You copy a draft into `stories/` when it says what you mean.
-2. **Add the workflow.** Copy `templates/acceptance-guard.yml` to `.github/workflows/acceptance-guard.yml`. It calls `wosslabs/touchstone@v1`. Give the workflow permission to write pull request comments. For a Java project use `templates/acceptance-guard-jvm.yml`, and see [Examples by language](#examples-by-language) for other stacks.
+2. **Add the workflow.** Copy `templates/acceptance-guard.yml` to `.github/workflows/acceptance-guard.yml`. It calls `wosslabs/touchstone@v0`. Give the workflow permission to write pull request comments. For a Java project use `templates/acceptance-guard-jvm.yml`, and see [Examples by language](#examples-by-language) for other stacks.
 3. **Set up CODEOWNERS.** Copy the paths from `templates/CODEOWNERS` into your `CODEOWNERS` file and replace `@YOUR_GITHUB_ORG/YOUR_TEAM` with the people who may change approved sentences and the pipeline. Turn on branch protection so that those paths need a review from that team. The template also covers the build files and the step definitions. Keep the lines that match your layout and delete the rest.
 4. **Add Cucumber, or another Cucumber-compatible runner.** Commit your lockfile so the pipeline installs the same versions every time. Unit tests stay in your own test tool. The acceptance layer is Cucumber. Its steps may drive a browser with Playwright, call the running service over HTTP, or run a command line program. The feature file does not name the driver.
 
@@ -429,7 +429,7 @@ Touchstone is an early beta. Here is what has been checked and what has not.
 
 ## Releases
 
-Pushing a tag such as `v0.9.0` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag matches `package.json`, and moves the major tag (`v0`, `v1`, and so on) to the same commit. Workflow templates use `wosslabs/touchstone@v1`, so that tag must exist and follow releases. If you want to be safe from tag changes, pin the action to a full commit SHA instead.
+Pushing a tag such as `v0.9.0` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag matches `package.json`, and moves the major tag (`v0`, `v1`, and so on) to the same commit. Workflow templates use `wosslabs/touchstone@v0`, so that tag must exist and follow releases. If you want to be safe from tag changes, pin the action to a full commit SHA instead.
 
 ## Repository layout
 

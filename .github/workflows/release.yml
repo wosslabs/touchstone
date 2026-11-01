@@ -1,7 +1,8 @@
-# Pushing a tag like v0.9.0 runs the tests, checks the tag matches package.json,
-# then moves the floating major tag (v0) to the same commit. Templates say
-# `uses: wosslabs/touchstone@v1`, so the major tag must follow releases.
-# Create releases with: git tag -a v1.0.0 -m "Touchstone 1.0.0" && git push origin v1.0.0
+# Pushing a tag like v0.9.0 runs the tests, checks the tag and every plugin
+# manifest match package.json, then moves the floating major tag (v0) to the
+# same commit. Templates say `uses: wosslabs/touchstone@v0` while the project is
+# 0.x. At 1.0.0 the templates must switch to @v1 in the same release commit.
+# Create releases with: git tag -a v0.9.0 -m "Touchstone 0.9.0" && git push origin v0.9.0
 name: Release
 
 on:
@@ -22,11 +23,24 @@ jobs:
           node-version: "22"
       - run: npm ci --ignore-scripts
       - run: npm test
-      - name: Tag matches package.json
+      - name: Tag and manifests match package.json
         run: |
-          expected="v$(node -p 'require("./package.json").version')"
-          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
-            echo "tag $GITHUB_REF_NAME does not match package.json version $expected" >&2
+          version="$(node -p 'require("./package.json").version')"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json version $version" >&2
+            exit 1
+          fi
+          for file in .claude-plugin/plugin.json .cursor-plugin/plugin.json; do
+            found="$(node -p "require('./$file').version")"
+            [ "$found" = "$version" ] || { echo "$file says $found, expected $version" >&2; exit 1; }
+          done
+          found="$(node -p "require('./.claude-plugin/marketplace.json').plugins[0].version")"
+          [ "$found" = "$version" ] || { echo "marketplace.json says $found, expected $version" >&2; exit 1; }
+      - name: Templates use the major tag this release moves
+        run: |
+          major="${GITHUB_REF_NAME%%.*}"
+          if grep -rn "wosslabs/touchstone@v" templates examples --include=*.yml --include=README.md | grep -v "@$major\b"; then
+            echo "some templates do not use @$major" >&2
             exit 1
           fi
       - name: Move the major tag

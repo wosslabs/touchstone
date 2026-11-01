@@ -23,7 +23,7 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - uses: wosslabs/touchstone@v1
+      - uses: wosslabs/touchstone@v0
         with:
           base: ${{ github.event.pull_request.base.sha }}
           command: ./mvnw -B verify

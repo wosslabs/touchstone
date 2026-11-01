@@ -1,9 +1,0 @@
-pyproject.toml
-src/todo/__init__.py
-src/todo/server.py
-src/todo/tasks.py
-src/touchstone_python_todo.egg-info/PKG-INFO
-src/touchstone_python_todo.egg-info/SOURCES.txt
-src/touchstone_python_todo.egg-info/dependency_links.txt
-src/touchstone_python_todo.egg-info/top_level.txt
-tests/test_tasks.py
