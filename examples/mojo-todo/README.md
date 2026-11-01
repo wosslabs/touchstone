@@ -17,7 +17,7 @@ Install Mojo with `pixi exec -c https://conda.modular.com/max -c conda-forge -s 
     run-install: false
     cache: false
 - uses: astral-sh/setup-uv@v5
-- uses: wosslabs/touchstone@v1
+- uses: wosslabs/touchstone@v0
   with:
     base: ${{ github.event.pull_request.base.sha }}
     command: mkdir -p build && pixi exec -c https://conda.modular.com/max -c conda-forge -s mojo -- mojo build src/todo.mojo -o build/todo && uv run --group dev behave

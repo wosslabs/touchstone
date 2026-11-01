@@ -12,7 +12,7 @@ cucumber-rs does not write Cucumber messages, so the red check accepts any faili
 
 ```yaml
 - uses: dtolnay/rust-toolchain@stable
-- uses: wosslabs/touchstone@v1
+- uses: wosslabs/touchstone@v0
   with:
     base: ${{ github.event.pull_request.base.sha }}
     command: cargo test --test acceptance

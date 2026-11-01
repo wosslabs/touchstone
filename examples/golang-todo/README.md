@@ -14,7 +14,7 @@ godog has no Cucumber-messages output, so the red check accepts any failing run 
 - uses: actions/setup-go@v5
   with:
     go-version: "1.23"
-- uses: wosslabs/touchstone@v1
+- uses: wosslabs/touchstone@v0
   with:
     base: ${{ github.event.pull_request.base.sha }}
     command: go test ./features/...
