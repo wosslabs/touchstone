@@ -67,7 +67,7 @@ In your own application, run:
 npx @wosslabs/touchstone init
 ```
 
-Before the package is published, run `node cli/touchstone.js init` from a clone instead. The unscoped npm name `touchstone` belongs to a different package. This one is `@wosslabs/touchstone`.
+**The package is not on npm yet.** Until it is, replace `npx @wosslabs/touchstone` in this README with `node /path/to/touchstone/cli/touchstone.js`, for example `node ~/src/touchstone/cli/touchstone.js init`. The GitHub Action does not need the npm package. The unscoped npm name `touchstone` belongs to a different package. This one is `@wosslabs/touchstone`.
 
 Init creates three directories and a few files:
 
