@@ -25,7 +25,7 @@ Touchstone works with Claude Code, Cursor, and any agent that reads a `SKILL.md`
 - [Getting started](#getting-started)
 - [How a change works](#how-a-change-works)
 - [Installing the skills and hook](#installing-the-skills-and-hook)
-- [Existing code bases](#existing-code-bases)
+- [Existing code bases: reverse engineering requirements](#existing-code-bases)
 - [Setting up a repository](#setting-up-a-repository)
 - [What the pull request checks](#what-the-pull-request-checks)
 - [Examples by language](#examples-by-language)
@@ -68,7 +68,7 @@ In your own application, run:
 npx @wosslabs/touchstone init
 ```
 
-**The package is not on npm yet.** Until it is, replace `npx @wosslabs/touchstone` in this README with `node /path/to/touchstone/cli/touchstone.js`, for example `node ~/src/touchstone/cli/touchstone.js init`. The GitHub Action does not need the npm package. The unscoped npm name `touchstone` belongs to a different package. This one is `@wosslabs/touchstone`.
+The package is published on npm as [`@wosslabs/touchstone`](https://www.npmjs.com/package/@wosslabs/touchstone). The unscoped name `touchstone` belongs to a different package. Use the scoped name.
 
 Init creates three directories and a few files:
 
@@ -289,20 +289,168 @@ This helps in three ways:
 
 What this produces describes what the system does now. It is not what the business wants. A person decides that, and nothing here reaches `stories/` until a person puts it there.
 
-### The steps
+### Reverse engineering a code base into ATDD requirements
 
-You ask the agent in the repository, for example: "Write down what this system does, starting with refunds." The `touchstone-discover` skill then works in this order:
+This is the full procedure. You can follow it by hand with the commands, or ask an agent to follow it. The agent works from the `touchstone-discover` skill, which is installed with the other Touchstone skills.
 
-1. **Take stock (no model involved).** `touchstone discover` reads the code and lists every entry point: web routes, scheduled jobs, message consumers, commands, screens, database tables and procedures, COBOL programs. It also reports languages, sizes and build files. The result is `drafts/discovery/inventory.md` and `inventory.json`.
-2. **Pick one area.** The agent groups entry points into areas the business would recognize ("Refunds", not "RefundController") and asks which to do first.
-3. **Read downward.** For that area it follows each entry point through the code and writes down every rule, with the numbers exactly as the code has them, including the odd ones.
-4. **Write sentences** in `drafts/legacy/<area>.feature`, in business words, with tags that say how sure we are.
-5. **Make them run** against the real system through step definitions that drive it from outside.
-6. **They must pass.** This is red before green turned around: here green is the proof. A scenario that fails is wrong about the system, and the sentence is fixed, never the production code.
-7. **Check the proof.** `touchstone evidence` fails any scenario with no pointer to real code, and lists the entry points no scenario covers.
-8. **Write the document.** `touchstone requirements` produces `drafts/legacy/REQUIREMENTS.md`.
+#### Before you start
 
-Then you read, correct, answer the open questions, and choose the next area. When you accept a scenario, you copy it into `stories/` and its steps into `features/`, and the normal workflow protects it from then on.
+- **Work on a copy.** Clone the repository to a machine or folder with no production credentials. The agent reads the code, starts the system, and runs tests against it. It is told not to change production code, and a hook blocks edits to `stories/`, but treat the copy as disposable.
+- **The system must be able to run** locally or in a test environment, so that scenarios can drive it from outside: a web service you can call, a command line program, a screen you can open, or a database you can seed and read. If it cannot be started at all, say so first. The agent can then write the sentences and mark every one as unproven.
+- **Install the tools.** The Touchstone skills (see [Installing the skills and hook](#installing-the-skills-and-hook)), Node.js 22 or later for the Touchstone commands (tested on 22 and 24), and a Cucumber runner for the language you prefer for the steps: cucumber-js, Cucumber-JVM, behave, godog or cucumber-rs. The steps may be in a different language from the system. A Python or JavaScript step can drive a COBOL, Java or .NET service over HTTP.
+
+#### Step 1. Take stock
+
+```bash
+npx @wosslabs/touchstone discover
+```
+
+This reads the code and writes `drafts/discovery/inventory.md` and `inventory.json`. No model is involved, so the result is the same every time. It lists the languages and sizes, the build files, the largest modules, and every entry point it recognizes: web routes, scheduled jobs, message consumers, commands, screens, database tables and procedures, COBOL programs and JCL jobs. Each entry has the file and line where it is defined.
+
+Read it. If it says "No entry points found", the system uses a framework it does not know. Start from the build files and the largest modules instead, or add a pattern to `ci/discover.js`.
+
+#### Step 2. Ask for one area at a time
+
+Open the copy in Claude Code or Cursor. Ask in ordinary words:
+
+```text
+Write down what this system does as business requirements,
+starting with refunds.
+```
+
+or, if you do not know where to start:
+
+```text
+Take stock of this code base and propose the business areas it is made of.
+```
+
+The agent groups the entry points into areas a business person would recognize ("Refunds", "Month-end close", not "RefundController") and asks which to do first. Choose one. A large system is done one area at a time, not in one pass.
+
+#### Step 3. What the agent produces
+
+For the chosen area the agent follows each entry point through the code: what it checks, calculates, changes, sends, and does when something goes wrong. It writes down every rule with the numbers exactly as the code has them, including odd ones. It then produces:
+
+```text
+drafts/
+├── discovery/
+│   ├── inventory.md            what is in the code base (step 1)
+│   └── inventory.json
+└── legacy/
+    ├── orders.feature          the sentences, one file per area
+    ├── REQUIREMENTS.md         the plain document for readers
+    └── COVERAGE.md             what is covered and what is not (with --write)
+cucumber.legacy.js              runs only the draft scenarios
+features/legacy/orders.steps.js the steps, which drive the real system from outside
+```
+
+The sentences look like this:
+
+```gherkin
+Feature: Orders
+  A customer places an order and pays for it. A paid order that has not shipped can be refunded.
+
+  @evidence:src/orders.js:33
+  Scenario Outline: Orders over 100.00 get 10% off
+    When "alice" orders one item at <price>
+    Then the discount is <discount>
+
+    Examples:
+      | price  | discount |
+      | 100.00 | 0.00     |
+      | 101.00 | 10.10    |
+
+  @suspected-bug
+  @evidence:src/orders.js:27
+  Scenario: An item ordered with a quantity of zero counts as one
+    When "alice" orders 0 of an item at 12.00 each
+    Then the order subtotal is 12.00
+```
+
+The words are the business's. They name what a person sees and does, not classes, tables or URLs. The step definitions translate them into calls on the real system. Each scenario starts from a known state, and nothing the system does is mocked.
+
+#### Step 4. The scenarios must pass
+
+The agent runs the draft scenarios against the system as it is today:
+
+```bash
+npx cucumber-js --config cucumber.legacy.js
+```
+
+This is red before green turned around. Here a passing run is the proof. A scenario that fails is wrong about the system, so the sentence is fixed, never the code. If the agent cannot make a sentence true without guessing, it changes the tag to `@unclear` and says what it could not work out. Run the command yourself to see it.
+
+#### Step 5. Check the proof
+
+```bash
+npx @wosslabs/touchstone evidence --write
+```
+
+This fails when:
+
+- a scenario has no `@evidence` and no honest label (`@unclear`, `@suspected-bug`, `@dead`);
+- a pointer names a file that does not exist, a line past the end of a file, or a path outside the code base (including through a symbolic link);
+- a scenario title is used twice, or a file is not valid Gherkin.
+
+It also lists the entry points that no scenario covers. `--write` saves the report as `drafts/legacy/COVERAGE.md`. Add `--require-coverage` to make an uncovered entry point a failure. For each uncovered entry point in your area, the answer is either "write a scenario" or "left out on purpose, and here is why".
+
+#### Step 6. Write the document
+
+```bash
+npx @wosslabs/touchstone requirements
+```
+
+This turns the checked scenarios into `drafts/legacy/REQUIREMENTS.md`: one section per feature, each scenario in plain steps, a status line (observed, unclear, looks like a bug, dead), and where in the code it comes from. A summary table counts them by kind. Nothing in it is invented at this stage, so it is safe to hand to someone who does not read code.
+
+#### Step 7. A person reviews
+
+The agent stops here. It lists its open questions and does not answer them. Read `REQUIREMENTS.md` and check:
+
+- **Is each statement true to how the business runs?** Correct the wording.
+- **Each `@unclear`.** The code does this, and the reason is not in the code. Ask someone who knows, then write the answer into the scenario as a comment.
+- **Each `@suspected-bug`.** The code does this, but it may not be wanted. Decide: keep it (it is now a rule), or fix it later as a separate change through the normal workflow, with a new sentence that fails first.
+- **A few evidence pointers.** Open the file at the line and see whether it is the code that makes the decision.
+- **The `@dead` ones.** Nothing reaches this code. Candidates for removal, or for a question about why it exists.
+- **The coverage list.** Is anything important left out?
+
+Then go back to step 2 with the next area. The coverage report tells you how far you are.
+
+#### Step 8. Approve what you want to keep
+
+Approval is yours. When you accept a scenario, copy it into `stories/` and its steps into `features/`. From then on the normal Touchstone workflow protects it: the agent cannot edit it, and the pull request check fails if it is removed, reworded or switched off. You can leave the `@evidence` tags on or remove them.
+
+Keep the draft files you have not approved. They are still useful as documentation, but they are not protected.
+
+#### Using the result to migrate
+
+Because the steps drive the system from outside, the same sentences can be pointed at a replacement:
+
+1. Change the part of the steps that starts or reaches the system. For example, make it read a `BASE_URL` from the environment instead of starting the old service.
+2. Run the same scenarios against the new system.
+3. Every failure is a difference in behavior, and every one needs a decision. Is it a bug in the new system, or old behavior that nobody wants?
+4. The `@suspected-bug` scenarios need a decision before the new system can pass them. Either keep the old behavior, or change the sentence on purpose, with a person's approval.
+
+The migration is finished when the approved sentences pass on the new system. For a gradual move, run the scenarios against both systems side by side while traffic moves across.
+
+What this does not cover: performance, security, data migration, scheduled work that cannot be triggered from outside, integrations with systems that cannot be run in a test, and rules held only in the data. List those separately.
+
+#### Keeping the documents honest
+
+Evidence pointers are line numbers, so they are correct for the commit they were written at. When the code changes, they can drift. Treat the draft requirements as a snapshot, and run the draft scenarios in your pipeline so that a change in behavior shows up as a failure. `examples/legacy-orders` has a CI job that does this: it runs the scenarios and then `touchstone evidence`.
+
+#### Troubleshooting
+
+| What you see | What to do |
+| --- | --- |
+| `discover` finds no entry points | The framework is not recognized. Start from the build files and the largest modules, or add a pattern to `ci/discover.js`. |
+| A draft scenario fails against the system | The sentence is wrong. Fix the sentence or the step, not the code. If you cannot tell, tag it `@unclear`. |
+| `evidence` says "so it is a guess" | Add an `@evidence` tag that points at the code, or an honest label. |
+| `evidence` says a line does not exist | The pointer is wrong or the file changed. Point at the lines that make the decision. |
+| Coverage is low and the agent says it is done | Ask it to list the uncovered entry points and say for each whether it is left out on purpose. |
+| The agent changed production code | Revert it. The skill forbids it. Run the agent in a copy so this cannot cost you anything. |
+| The system cannot be started in a test | Say so first. The sentences can still be written, but every one is `@unclear` until it can be run. |
+
+#### Doing the parts by hand
+
+`discover`, `evidence` and `requirements` are ordinary commands. Anyone can run them. The part that needs reading and judgment is turning code into sentences and writing the steps. A person can do that, an agent can do that, or an agent can draft and a person can review. The checks work the same way either way.
 
 ### Tags
 
@@ -339,7 +487,6 @@ It is one small system, one model and one run. Treat it as a demonstration that 
 - It is done one area at a time. A large system takes many rounds, and the coverage report shows how far you are.
 - Business rules hidden in the database, in configuration, or in another system are only found if the agent reads them. The inventory lists tables and procedures but does not read their logic.
 - Code, comments and documents in the code base are treated as untrusted text, and the skill tells the agent not to copy secrets or personal data into sentences or fixtures. That is guidance. Run it on a copy of the repository without production credentials.
-- `examples/legacy-orders` is a small, deliberately old-fashioned order service to try this on.
 
 ## Setting up a repository
 
@@ -502,11 +649,11 @@ Read these with care:
 - **Two cases were fixed after they failed.** The first run scored `draft-then-stop` 2 of 5 and `builds-against-approved-sentence` 0 of 5. The transcripts showed the agent was following the skill and the cases were wrong. The skill says to ask one question before drafting, and not to build until a person agrees the failure is the missing behavior. The cases now say so. A reviewer should read the case files and decide whether they now test the right thing.
 - **`runs-test-before-code` passed vacuously at first.** The agent stopped before writing any code, so the order check had nothing to check. The case now supplies the agreement to build and requires production code to change.
 - **Five runs per case is a small sample, on one model, against one small fixture.** It shows the skills mostly work on easy cases. It does not show how often they fail on hard ones.
-- **The agent could not run the trace check in the build runs.** `npx @wosslabs/touchstone check` failed with a 404 because the package is not on npm yet. The agent reported this honestly instead of claiming success.
+- **The build runs could not run the trace check.** They were made before the package was published, so `npx @wosslabs/touchstone check` failed with a 404. The agent reported this honestly instead of claiming success. The cases have not been re-run since publishing.
 
 ## Project status
 
-Touchstone is an early beta. Here is what has been checked and what has not.
+Touchstone is an early beta. The current release is 0.9.1. Here is what has been checked and what has not.
 
 **Verified by running it:**
 
@@ -517,14 +664,13 @@ Touchstone is an early beta. Here is what has been checked and what has not.
 
 **Not verified yet:**
 
-- The `wosslabs/touchstone` action itself has not run on a real pull request. The repository's own CI uses it only for the trace. The pull request comment, the red check inside the action, `red-batch`, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run once, for 0.9.0.
+- The `wosslabs/touchstone` action itself has not run on a real pull request. The repository's own CI uses it only for the trace. The pull request comment, the red check inside the action, `red-batch`, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run twice, for 0.9.0 and 0.9.1.
 - The Mojo red command.
 - The evals ran against one model, on small fixtures. See [Results](#results).
 - Nobody outside this project has used it on a real repository.
 
 **Known limits:**
 
-- **The npm package is not published.** The `touchstone check`, `discover`, `evidence` and `requirements` commands are all run as `npx @wosslabs/touchstone ...`, so agents and users cannot run them from a normal install until it is. A plugin installed from the marketplace is copied without `node_modules`, so running the command from the plugin folder fails too. Publishing the package is the fix.
 - Step definitions are found by pattern matching. Steps built from constants or string concatenation, or registered through unusual helpers, will not be found.
 - A step definition can still be weakened in ways the checks cannot see, for example by changing an assertion so it can never fail. Code review of step files is the defence.
 - Acceptance sentences prove that the system does what you specified. They do not prove you specified the right things, and they say nothing about security, performance, or architecture. Release controls, rollback, migration checks, architecture tests and mutation testing belong in your own pipeline, on paths the agent does not own.
@@ -533,7 +679,15 @@ The attack suite runs offline. A good next step would be a public repository hol
 
 ## Releases
 
-Pushing a tag such as `v0.9.0` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit.
+The current release is 0.9.1, published to npm as `@wosslabs/touchstone`.
+
+Pushing a tag such as `v0.9.2` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit. It does not publish to npm. Publishing is a separate step done by a person, because it needs two-factor authentication and cannot be undone:
+
+```bash
+npm publish --access public
+```
+
+To release: bump the version in `package.json`, the two plugin manifests, `marketplace.json` and the lockfile (a unit test fails if they differ), commit, tag, push the tag, then publish.
 
 While the project is 0.x, workflow templates use `wosslabs/touchstone@v0`. At 1.0.0 the templates switch to `@v1` in the same commit. To be safe from tag changes, pin the action to a full commit SHA instead.
 
