@@ -837,7 +837,7 @@ Read these with care:
 
 ## Project status
 
-Touchstone is an early beta. The current release is 0.10.0. Here is what has been checked and what has not.
+Touchstone is an early beta. The current release is 0.10.1. Here is what has been checked and what has not.
 
 **Verified by running it:**
 
@@ -869,9 +869,9 @@ The attack suite runs offline. A good next step would be a public repository hol
 
 ## Releases
 
-The current release is 0.10.0, published to npm as `@wosslabs/touchstone`.
+The current release is 0.10.1, published to npm as `@wosslabs/touchstone`.
 
-Pushing a tag such as `v0.10.1` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit. It does not publish to npm. Publishing is a separate step done by a person, because it needs two-factor authentication and cannot be undone:
+Pushing a tag such as `v0.10.2` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit. It does not publish to npm. Publishing is a separate step done by a person, because it needs two-factor authentication and cannot be undone:
 
 ```bash
 npm publish --access public
