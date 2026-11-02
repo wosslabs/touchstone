@@ -21,7 +21,22 @@ function option(name, fallback = "") {
 }
 
 const cli = join(packageRoot, "cli", "touchstone.js");
-const fill = (text) => text.replaceAll("{{touchstone}}", `node ${cli}`);
+const fill = (text, extra = {}) => {
+  let out = text.replaceAll("{{touchstone}}", `node ${cli}`);
+  for (const [name, value] of Object.entries(extra)) {
+    out = out.replaceAll(`{{${name}}}`, value);
+  }
+  return out;
+};
+
+// Oracles judge a run from pristine copies kept outside the work directory, so
+// an agent that edits the project's own quality scripts cannot change the verdict.
+// An oracle passes (exit 0) when the thing it checks is in good shape.
+function runOracle(testCase, work, check) {
+  const oracleDir = join(packageRoot, testCase.fixture, "quality");
+  const outcome = spawnSync(fill(check.run, { oracle: oracleDir, work }), { cwd: work, shell: true, encoding: "utf8" });
+  return outcome.status === 0;
+}
 
 function prepare(testCase) {
   const work = mkdtempSync(join(tmpdir(), `touchstone-eval-${testCase.name}-`));
@@ -82,8 +97,19 @@ function main() {
     }
     let passed = 0;
     const reasons = [];
+    const fixedRuns = new Map((testCase.oracles?.defects ?? []).map((defect) => [defect.name, 0]));
+    const fixedPerRun = [];
     for (let run = 1; run <= runs; run += 1) {
       const work = prepare(testCase);
+      const oracles = testCase.oracles;
+      if (oracles) {
+        const missing = oracles.defects.filter((defect) => runOracle(testCase, work, defect)).map((defect) => defect.name);
+        const broken = oracles.preserved.filter((check) => !runOracle(testCase, work, check)).map((check) => check.name);
+        if (missing.length || broken.length) {
+          console.log(`INVALID ${testCase.name}: the fixture is wrong before the agent starts (defects already fixed: ${missing}; behaviour already broken: ${broken})`);
+          return 1;
+        }
+      }
       const before = snapshot(work);
       const result = spawnSync("claude", command(testCase, budget, mode), { cwd: work, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
       const transcript = result.stdout || "";
@@ -98,6 +124,21 @@ function main() {
           failures.push(`${check.name} failed: ${`${outcome.stdout}${outcome.stderr}`.trim().split("\n").slice(-3).join(" | ")}`);
         }
       }
+      if (testCase.oracles && !result.error) {
+        const fixed = testCase.oracles.defects.filter((defect) => runOracle(testCase, work, defect)).map((defect) => defect.name);
+        const lost = testCase.oracles.preserved.filter((check) => !runOracle(testCase, work, check)).map((check) => check.name);
+        for (const name of fixed) {
+          fixedRuns.set(name, fixedRuns.get(name) + 1);
+        }
+        fixedPerRun.push(fixed.length);
+        if (lost.length) {
+          failures.push(`behaviour lost: ${lost.join(", ")}`);
+        }
+        if (testCase.expect.minFixed !== undefined && fixed.length < testCase.expect.minFixed) {
+          failures.push(`fixed only ${fixed.length} of ${testCase.oracles.defects.length} defects (${fixed.join(", ") || "none"})`);
+        }
+        console.log(`  run ${run}: fixed ${fixed.length}/${testCase.oracles.defects.length} [${fixed.join(", ") || "none"}]${lost.length ? ` BEHAVIOUR LOST: ${lost}` : ""}`);
+      }
       writeFileSync(join(results, `${testCase.name}-${run}.jsonl`), transcript);
       if (failures.length) {
         reasons.push(`run ${run}: ${failures.join("; ")}`);
@@ -107,6 +148,14 @@ function main() {
       }
     }
     console.log(`${passed === runs ? "PASS" : "FAIL"} ${testCase.name}: ${passed}/${runs} runs (${mode})`);
+    if (testCase.oracles) {
+      const mean = fixedPerRun.length ? fixedPerRun.reduce((sum, count) => sum + count, 0) / fixedPerRun.length : 0;
+      console.log(`  defects fixed on average: ${mean.toFixed(2)} of ${testCase.oracles.defects.length}`);
+      for (const [name, count] of fixedRuns) {
+        console.log(`    ${name}: fixed in ${count} of ${fixedPerRun.length} runs`);
+      }
+      writeFileSync(join(results, `${testCase.name}.summary.json`), `${JSON.stringify({ runs: fixedPerRun.length, fixedPerRun, fixedRuns: Object.fromEntries(fixedRuns) }, null, 2)}\n`);
+    }
     for (const reason of reasons) {
       console.log(`  - ${reason}`);
     }

@@ -16,6 +16,7 @@ Announce at the start of a behavior change: "I'm using Touchstone."
 | The request is a product, a release, or more than one thing a person can do | `touchstone-features` |
 | One feature is chosen and has no approved failing sentence yet | `touchstone` |
 | The person has agreed the failure is the missing behavior | `touchstone-build` |
+| The feature is built and green, and `touchstone.json` defines the phases `clean`, `architect` and `harden` | `touchstone-refine`, before the pull request |
 | The acceptance run failed with a programming error, an undefined step, or a screen that did not start | `touchstone-repair` |
 | They want to understand, document, or recover the requirements of code that already exists, or to prepare a migration or reorganization | `touchstone-discover` |
 | They asked a question, or asked you to look something up | Answer. No new sentence. |

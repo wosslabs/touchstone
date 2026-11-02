@@ -1,0 +1,17 @@
+{
+  "name": "touchstone-refine-orders",
+  "private": true,
+  "type": "module",
+  "description": "A working feature with deliberate quality defects, used to test whether cleaning, architecture and hardening passes find and fix them.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "acceptance": "cucumber-js --strict",
+    "dup": "node quality/dup-check.js",
+    "arch": "node quality/arch-check.js",
+    "mutate": "node quality/mutate-code.js",
+    "behaviour": "node quality/behaviour-check.js"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.3.0"
+  }
+}
