@@ -118,6 +118,7 @@ const CHECKS = {
   discover: "discover.js",
   evidence: "check-evidence.js",
   requirements: "requirements-doc.js",
+  gates: "gates.js",
 };
 
 const command = process.argv[2];
@@ -127,7 +128,7 @@ if (CHECKS[command]) {
   process.exit(result.status ?? 1);
 }
 if (command !== "init") {
-  console.error("usage: touchstone init [--dir path] [--features path]\n       touchstone check [--repo path]\n       touchstone guard [--base sha] [--repo path]\n       touchstone red --base sha --command cmd [--setup cmd] [--repo path]\n       touchstone discover [--repo path] [--out dir]\n       touchstone evidence [--repo path] [--drafts dir] [--require-coverage]\n       touchstone requirements [--repo path] [--drafts dir] [--out file]");
+  console.error("usage: touchstone init [--dir path] [--features path]\n       touchstone check [--repo path]\n       touchstone guard [--base sha] [--repo path]\n       touchstone red --base sha --command cmd [--setup cmd] [--repo path]\n       touchstone discover [--repo path] [--out dir]\n       touchstone evidence [--repo path] [--drafts dir] [--require-coverage]\n       touchstone requirements [--repo path] [--drafts dir] [--out file]\n       touchstone gates list | run <gate> | phase <phase> [--base ref]");
   process.exit(1);
 }
 init(resolve(argument("--dir") || "."));
