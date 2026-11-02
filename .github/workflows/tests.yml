@@ -33,12 +33,12 @@ jobs:
       - name: Run the JVM example scenarios
         working-directory: examples/jvm-todo
         run: ./mvnw -B verify
-      - name: Mutation testing of the code (PIT) meets its threshold
-        working-directory: examples/jvm-todo
-        run: ./mvnw -B org.pitest:pitest-maven:mutationCoverage
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
+      - name: Mutation testing of the code (PIT) meets its pass mark
+        working-directory: examples/jvm-todo
+        run: node quality/pit-gate.js --threshold 90 --require example.todo.TaskList --min-mutations 3
       - run: npm ci --ignore-scripts
       - name: Trace the JVM example
         run: node ci/check-trace.js --repo examples/jvm-todo
