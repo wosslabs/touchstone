@@ -16,6 +16,8 @@
     "ci/discover.js",
     "ci/check-evidence.js",
     "ci/requirements-doc.js",
+    "ci/config.js",
+    "ci/gates.js",
     "hooks/protect-acceptance.js",
     "templates/"
   ],
