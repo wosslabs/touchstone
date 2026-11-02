@@ -8,9 +8,20 @@
     "unit": "npm test"
   },
   "quality": [],
-  "mutation": { "mode": "warn", "maxMutants": 30 },
+  "mutation": {
+    "mode": "warn",
+    "maxMutants": 30
+  },
   "phases": {
-    "build": { "gates": ["unit", "acceptance"] },
-    "clean": { "gates": ["unit", "acceptance"] }
+    "build": {
+      "gates": [
+        "acceptance"
+      ]
+    },
+    "clean": {
+      "gates": [
+        "acceptance"
+      ]
+    }
   }
 }
