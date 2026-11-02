@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { applyMutant, bumpNumber, mutateValue, sample, tokensIn } from "../ci/mutate-gherkin.js";
+import { applyMutant, bumpNumber, mutateValue, mutateValues, sample, tokensIn } from "../ci/mutate-gherkin.js";
 
 const script = join(dirname(fileURLToPath(import.meta.url)), "..", "ci", "mutate-gherkin.js");
 
@@ -77,6 +77,14 @@ test("values change by their kind", () => {
   assert.equal(mutateValue("  "), null);
 });
 
+test("a string gets two mutants, a number or boolean gets one", () => {
+  assert.deepEqual(mutateValues("gold-bob"), ["gold-bobx", "xold-bob"]);
+  assert.deepEqual(mutateValues("xray"), ["xrayx", "yray"]);
+  assert.deepEqual(mutateValues("12"), ["13"]);
+  assert.deepEqual(mutateValues("true"), ["false"]);
+  assert.deepEqual(mutateValues(""), []);
+});
+
 test("tokens come from quoted strings and bare numbers, not placeholders or numbers inside quotes", () => {
   const values = tokensIn('"alice" orders 3 at 12.50 for <price> and "a 5" with abc12 and 7th').map((token) => token.value);
   assert.deepEqual(values, ["alice", "3", "12.50", "a 5"]);
@@ -100,8 +108,9 @@ test("reports a value nothing checks as a survivor and exits 0 in warn mode", ()
   try {
     const result = mutate(repo, "--all");
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.match(result.stdout, /3 mutants: 2 killed, 1 survived/);
+    assert.match(result.stdout, /4 mutants: 2 killed, 2 survived/);
     assert.match(result.stdout, /"alice" -> "alicex"/);
+    assert.match(result.stdout, /"alice" -> "xlice"/);
     assert.match(result.stdout, /features\/pay\.feature:4:/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
@@ -122,7 +131,7 @@ test("a person can accept a survivor in stories/", () => {
   try {
     const result = mutate(repo, "--all", "--mode", "fail");
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.match(result.stdout, /1 accepted as equivalent/);
+    assert.match(result.stdout, /2 accepted as equivalent/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -146,7 +155,7 @@ test("a file left mutated by an interrupted run is restored first", () => {
     writeFileSync(join(repo, "features", "pay.feature.touchstone-orig"), feature);
     const result = mutate(repo, "--all");
     assert.match(result.stdout, /restored .*pay\.feature from an interrupted run/);
-    assert.match(result.stdout, /3 mutants/);
+    assert.match(result.stdout, /4 mutants/);
     assert.equal(existsSync(join(repo, "features", "pay.feature.touchstone-orig")), false);
   } finally {
     rmSync(repo, { recursive: true, force: true });
@@ -171,7 +180,7 @@ test("with --base only changed scenarios are mutated", () => {
     write(repo, "features/pay.feature", feature.replace("10% off", "ten percent off"));
     git(repo, ["commit", "-qam", "rename the scenario"]);
     const result = mutate(repo, "--base", "HEAD~1");
-    assert.match(result.stdout, /1 scenarios, 3 mutants/);
+    assert.match(result.stdout, /1 scenarios, 4 mutants/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -197,7 +206,8 @@ test("a mutant that only breaks the run is invalid, not killed", () => {
   try {
     const result = spawnSync("node", [script, "--repo", repo, "--command", "node runner.js", "--all"], { encoding: "utf8", env: { ...process.env, REPORT: "1" } });
     assert.match(result.stdout, /1 invalid/);
-    assert.doesNotMatch(result.stdout, /3 killed/);
+    assert.match(result.stdout, /invalid \(the run broke instead of the scenario failing/);
+    assert.doesNotMatch(result.stdout, /4 killed/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -208,7 +218,7 @@ test("--max-mutants limits the work per scenario and says so", () => {
   try {
     const result = mutate(repo, "--all", "--max-mutants", "2");
     assert.match(result.stdout, /2 mutants/);
-    assert.match(result.stdout, /tried 2 of 3 mutants/);
+    assert.match(result.stdout, /tried 2 of 4 mutants/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -234,7 +244,7 @@ test("the mode and cap come from the protected config at the base commit", () =>
     git(repo, ["commit", "-qam", "rename the scenario"]);
     const result = mutate(repo, "--base", "HEAD~2");
     assert.equal(result.status, 1, "the base commit says fail, the pull request cannot turn it off");
-    assert.match(result.stdout, /tried 2 of 3/);
+    assert.match(result.stdout, /tried 2 of 4/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

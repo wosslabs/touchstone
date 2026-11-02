@@ -97,6 +97,8 @@ You can run the same checks as the pull request on your own machine:
 | `npx @wosslabs/touchstone check` | Traces each approved sentence to its feature and step definitions. |
 | `npx @wosslabs/touchstone guard --base <sha>` | Fails if approved sentences were removed or reworded, or a test was switched off. |
 | `npx @wosslabs/touchstone red --base <sha> --command "..."` | Runs new scenarios against the base code and checks that they fail first. |
+| `npx @wosslabs/touchstone mutate --command "..." --base <sha>` | Changes one value at a time in new or changed scenarios and expects each to fail (see [Gherkin value mutation](#gherkin-value-mutation)). |
+| `npx @wosslabs/touchstone gates list`, `run <gate>`, `phase <phase>` | Runs the gates named in `touchstone.json`, and checks that an agent's phase stayed inside its fence (see [The gate config](#the-gate-config-touchstonejson)). |
 | `npx @wosslabs/touchstone discover` | Lists the entry points of an existing code base (see [Existing code bases](#existing-code-bases)). |
 | `npx @wosslabs/touchstone evidence` | Checks that every sentence about an existing system points at real code. |
 | `npx @wosslabs/touchstone requirements` | Writes a plain requirements document from the checked sentences. |
@@ -273,7 +275,7 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 
 ### What the hook blocks
 
-The hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, and Touchstone's own check scripts. It also blocks obvious shell writes such as `rm`, `mv`, redirects, and `find ... -delete`.
+The hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `touchstone.json`, and Touchstone's own check scripts. It also blocks obvious shell writes such as `rm`, `mv`, redirects, and `find ... -delete`.
 
 The hook is a safety net, not a lock. A determined agent can get around it, for example by building a path inside a shell variable. The real controls are CODEOWNERS and branch protection, which the agent cannot bypass.
 
@@ -392,6 +394,17 @@ This fails when:
 
 It also lists the entry points that no scenario covers. `--write` saves the report as `drafts/legacy/COVERAGE.md`. Add `--require-coverage` to make an uncovered entry point a failure. For each uncovered entry point in your area, the answer is either "write a scenario" or "left out on purpose, and here is why".
 
+#### Step 5b. Check that the sentences depend on their values (optional)
+
+A sentence can pass and still not mean much. If it says "orders over 100.00 get 10% off" but nothing checks the discount, it would pass for any discount. Mutation catches this by changing each value in the sentences and expecting them to fail:
+
+```bash
+npx @wosslabs/touchstone mutate --all --features drafts/legacy \
+  --command 'npx cucumber-js --config cucumber.legacy.js --name "$TOUCHSTONE_SCENARIO" --format message:"$TOUCHSTONE_MESSAGES"'
+```
+
+Read the survivors as questions about the sentences. See [Gherkin value mutation](#gherkin-value-mutation) for what each result means and how a person accepts a harmless survivor.
+
 #### Step 6. Write the document
 
 ```bash
@@ -477,6 +490,8 @@ Running the scenarios against the system proves they are true of its behavior. T
 - left out the dead export route and the nightly job, and said so;
 - changed no production code. All 40 scenario runs pass against the untouched service.
 
+Mutation was run on those 29 scenarios afterwards (a cap of 12 mutants per scenario, about a minute): 125 mutants, 74 killed, 41 survived, 10 invalid. Every value in the expected outcomes (discounts, totals, refund amounts) was checked: changing one made the scenario fail. The survivors were values that do not matter or that fall on the same side of a rule: the customer name `alice` (fifteen places, one group in the report), `40.00` becoming `40.01` when the result rounds to the same cent, `21` becoming `22` when both are refused. The prefix rule for `gold-` customers was tested properly: changing the first letter made the scenario fail. The ten invalid mutants were Examples cells that hold wording (such as `pay` or `the order is created`) rather than values. Changing them left a step with no definition.
+
 The evidence pointers were correct on a spot check. The coverage report shows 4 of 8 entry points covered. The four it lists as uncovered are the two read-only routes, the dead route and the nightly job, which matches what the agent said it left out.
 
 It is one small system, one model and one run. Treat it as a demonstration that the method works, not as a measure of how it copes with a large or unusual code base. The files are in `examples/legacy-orders/drafts/legacy/`, including `REQUIREMENTS.md`.
@@ -517,6 +532,8 @@ The action compares the pull request with its base commit, runs the checks below
 | Skipped tests | A skipped, disabled, focused (`.only`), pending (`todo`) or work-in-progress test is added. A build file is changed to ignore test failures (`testFailureIgnore`, `skipTests` set to true, `ignoreFailures`). A workflow step gets `continue-on-error: true`. |
 | Trace | A sentence has no scenario, a scenario has no sentence, titles repeat, steps differ in any way, a step has no definition, or a definition does nothing. |
 | Red before green | A new or changed scenario passes against the base commit. Or it fails for the wrong reason. Or it does not pass with the pull request's code. |
+| Values are checked | In `fail` mode: changing a value in a new or changed scenario (or in any scenario, when a step definition changed) does not make it fail. In `warn` mode it is reported only. |
+| Quality gates | A command listed under `quality` in `touchstone.json` fails (unit tests, mutation testing of the code, complexity, architecture rules). |
 | Acceptance command | The `command` you set in the workflow fails. |
 | Held-back scenarios | The optional `holdout-command` fails. |
 
@@ -545,6 +562,7 @@ Each scenario normally gets its own run at the base commit and another with the 
 | `base` | The pull request's base commit. Defaults to the pull request base. |
 | `command` | Runs all acceptance tests. Set it in the workflow file, not in `package.json`. |
 | `red-command` | Runs one scenario for the red check (see above). Empty skips the check. |
+| `mutate` | `"off"`, `"warn"` or `"fail"` for Gherkin value mutation. Defaults to `mutation.mode` in `touchstone.json`, otherwise `"off"`. It uses `red-command` to run one scenario. |
 | `red-batch` | `"true"` to run all changed scenarios in one pass per phase. |
 | `red-reason-unchecked` | `"true"` only for runners that can write neither Cucumber messages nor a Cucumber JSON report. |
 | `setup` | Prepares the base checkout for the red check, for example `npm ci --ignore-scripts`. |
@@ -552,7 +570,89 @@ Each scenario normally gets its own run at the base commit and another with the 
 | `holdout-command` | Runs held-back scenarios (see [below](#held-back-scenarios)). |
 | `comment` | Set to `"false"` to skip the pull request comment. |
 
-Write the commands in the workflow file rather than as npm scripts. The workflow file is protected by CODEOWNERS and the hook, but `package.json` is something a pull request can change.
+Any command left empty is taken from `touchstone.json` at the pull request's base commit, if the file exists. An input set in the workflow wins over the file. Write the commands in the workflow file or in `touchstone.json` rather than as npm scripts. The workflow file is protected by CODEOWNERS and the hook, but `package.json` is something a pull request can change.
+
+### Gherkin value mutation
+
+A sentence that states a value ("10% off over 101.00") should fail when that value is wrong. Mutation checks that it does. For each scenario it changes one value at a time, runs the scenario, and expects it to fail:
+
+| Value | Changed to |
+| --- | --- |
+| a number | one unit of its last digit higher: `100.00` becomes `100.01`, `20` becomes `21` |
+| a string | the same string with a letter added (`bob` becomes `bobx`), and with the first letter replaced (`xob`). The second catches prefix rules like `gold-`. |
+| `true` or `false` | the other one |
+
+A mutant that makes the scenario fail is **killed**. A mutant that leaves it passing is a **survivor**: nothing the scenario checks depends on that value. Either the step ignores the value, or an assertion can never fail. This is the check for "a step definition can still be weakened". A `Then` step that stops asserting anything makes every value in its scenarios survive.
+
+```bash
+npx @wosslabs/touchstone mutate --base <sha> \
+  --command 'npx cucumber-js --name "$TOUCHSTONE_SCENARIO" --format message:"$TOUCHSTONE_MESSAGES"'
+```
+
+The command is the same kind as `red-command`: it runs the scenario named by `$TOUCHSTONE_SCENARIO`. If it writes Cucumber messages or a JSON report to `$TOUCHSTONE_MESSAGES`, a mutant only counts as killed by an assertion-style failure. A run that merely broke (an undefined step, a programming error, a failing hook) is reported as **invalid** and says nothing either way.
+
+What gets mutated:
+
+- With `--base`, the new or changed scenarios. If a step definition changed, every scenario, because the change could have weakened any of them.
+- With `--all`, every scenario. Use `--features <dir>` to point at a different folder, for example `drafts/legacy`.
+- At most 30 mutants per scenario (`--max-mutants`), sampled evenly. The report says when it sampled.
+- The unmutated scenario must pass twice first. A scenario that fails or flakes is skipped, so a flaky test never looks like a kill.
+
+**Survivors are questions for a person, not failures to hide.** Many are fine: a customer's name that does not matter, or `40.00` becoming `40.01` when the result is rounded to the same cent. For each one, either tighten the step so it depends on the value, or accept it. A person accepts it by adding a line to a file under `stories/`:
+
+```text
+# touchstone-equivalent: Orders over 100 get 10% off | alice | the name is only shown on the receipt
+```
+
+The agent cannot add that line, because it cannot edit `stories/`. Identical survivors are grouped in the report, so one customer name that appears in fifteen scenarios is one line.
+
+`mutate` works in place on the feature files, and restores them afterwards, even if it is interrupted (a leftover `.touchstone-orig` file is restored on the next run). Run it on a clean checkout.
+
+Modes: `off`, `warn` (report, never fail) and `fail` (a survivor that has not been accepted fails the pull request). Start with `warn`. In `fail` mode, the mode comes from `touchstone.json` at the base commit, so a pull request cannot switch it off for itself.
+
+Limits: it only changes values that appear in the scenario, so a rule with no number or string in its sentences is not tested. It costs one scenario run per mutant. It checks that the scenarios notice wrong values. It does not test the production code, which needs a mutation tool for your language.
+
+### The gate config (`touchstone.json`)
+
+One file, owned by people, names the commands that decide whether a change is good. The Action and an agent's inner loop both read it, so they cannot disagree about what "passing" means, and an agent cannot redefine it. `npx @wosslabs/touchstone init` writes a starter one.
+
+```json
+{
+  "gates": {
+    "acceptance": "npx cucumber-js --strict",
+    "red": {
+      "command": "npx cucumber-js --strict --name \"$TOUCHSTONE_SCENARIO\" --format message:\"$TOUCHSTONE_MESSAGES\"",
+      "setup": "npm ci --ignore-scripts"
+    },
+    "unit": "npm test",
+    "complexity": "npm run complexity"
+  },
+  "quality": ["unit", "complexity"],
+  "mutation": { "mode": "warn", "maxMutants": 30 },
+  "phases": {
+    "clean": { "allow": ["src/**", "tests/**"], "gates": ["unit", "acceptance"] }
+  }
+}
+```
+
+- **`gates`** are named commands. A gate is a string, or `{ "command", "setup" }`. The Action uses `acceptance` and `red` when the workflow does not set `command` and `red-command`.
+- **`quality`** lists gates the Action runs after the acceptance command. Any of them failing fails the pull request. This is where mutation testing of the code, complexity limits, duplicate-code checks and architecture rules go. Touchstone does not ship those tools. They are specific to each language (PIT, Stryker, mutmut, ArchUnit and others), so you name the command you already use.
+- **`mutation`** sets the mode and the cap for [Gherkin value mutation](#gherkin-value-mutation).
+- **`phases`** are for an agent working in steps (build, clean, restructure). Each has a list of gates to pass and, optionally, `allow` and `forbid` lists of paths.
+
+**The Action reads this file from the pull request's base commit, not from the pull request.** A pull request that loosens a gate takes effect only after a person has reviewed and merged it. For the first pull request that adds the file, the working tree is used. The file is protected by the hook and listed in the CODEOWNERS template.
+
+#### The fence around a phase
+
+```bash
+npx @wosslabs/touchstone gates phase clean --base HEAD
+```
+
+This lists the files changed since the base, and fails if any of them is outside what the phase may touch. These are never allowed in any phase: `stories/`, any `.feature` file, the workflows, `touchstone.json`, `CODEOWNERS`, `.claude/` and `.cursor/hooks/`. A phase can add `allow` (only these paths) and `forbid` (never these) lists. Only if the fence holds does it run the phase's gates in order and stop at the first failure.
+
+It is a plain check on `git diff`. It does not depend on an agent following instructions. It is what stops an agent that is tidying code from also editing the sentences the pull request is judged against.
+
+`gates list` prints the gates, and `gates run <gate>` runs one and passes its exit code through.
 
 ### Install-time safety
 
@@ -659,8 +759,12 @@ Touchstone is an early beta. The current release is 0.9.1. Here is what has been
 
 - All unit tests (`npm test`) and the CI jobs on GitHub for every example. All of them passed on the last run.
 - Reading an existing code base. An agent session wrote 29 scenarios for `examples/legacy-orders`, and all pass against the unmodified service. Five evaluation runs of that task passed.
-- An attack suite (`npm run attacks`, also a CI job). It applies eleven deliberately bad changes, such as a reworded story, an empty step, `test.only`, a build file that ignores test failures, a scenario that is already green, and a stack trace in a `When` step. Each must turn the pipeline red. One honest change must stay green. The suite found a real hole when it was written: the guard exempted any `tests/` folder, including an application's own. That is fixed.
+- An attack suite (`npm run attacks`, also a CI job). It applies twelve deliberately bad changes, such as a reworded story, an empty step, `test.only`, a build file that ignores test failures, a scenario that is already green, a stack trace in a `When` step, a `Then` step that stops asserting anything, and the same with mutation switched off in the same pull request. Each must turn the pipeline red. One honest change must stay green. The suite found a real hole when it was written: the guard exempted any `tests/` folder, including an application's own. That is fixed.
 - The red check against real runner output for the Node web, TypeScript, Java, Python, Go and Rust examples. That includes a Java pull request whose new unit test refers to code that does not exist at the base commit.
+
+**Built, but only checked in unit tests and the attack suite:** Gherkin value mutation, `touchstone.json`, the phase fence and the quality gates. The mutator was run for real on the TypeScript example and on `examples/legacy-orders`. The Action steps that call them have never run on GitHub.
+
+**Not built yet:** the agent's inner loop as a set of phases (build, clean, restructure, harden, verify). The config and the fence that such phases need exist. The skills that walk an agent through the phases do not, and nothing yet shows that extra review phases improve results. That needs an evaluation with seeded defects before it is worth claiming.
 
 **Not verified yet:**
 
@@ -700,6 +804,8 @@ While the project is 0.x, workflow templates use `wosslabs/touchstone@v0`. At 1.
 | `ci/check-acceptance-guard.js` | Approved sentences and skipped tests |
 | `ci/check-trace.js` | Sentence, scenario and step definition trace |
 | `ci/check-red-green.js` | Red before green |
+| `ci/mutate-gherkin.js` | Gherkin value mutation |
+| `ci/config.js`, `ci/gates.js`, `ci/action-config.js` | The gate config (`touchstone.json`), running gates, the phase fence, and reading the config in the Action |
 | `ci/red-reason.js` | Reads Cucumber messages or JSON reports and decides whether a failure is missing behavior |
 | `ci/gherkin.js` | Shared Gherkin parsing |
 | `action.yml` | The GitHub Action |
