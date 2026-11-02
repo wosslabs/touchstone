@@ -640,7 +640,7 @@ One file, owned by people, names the commands that decide whether a change is go
 - **`gates`** are named commands. A gate is a string, or `{ "command", "setup" }`. The Action uses `acceptance` and `red` when the workflow does not set `command` and `red-command`.
 - **`quality`** lists gates the Action runs after the acceptance command. Any of them failing fails the pull request. This is where mutation testing of the code, complexity limits, duplicate-code checks and architecture rules go. Touchstone does not ship those tools. They are specific to each language (PIT, Stryker, mutmut, ArchUnit and others), so you name the command you already use.
 - **`mutation`** sets the mode and the cap for [Gherkin value mutation](#gherkin-value-mutation).
-- **`phases`** are for an agent working in steps (build, clean, restructure). Each has a list of gates to pass and, optionally, `allow` and `forbid` lists of paths.
+- **`phases`** are for an agent working in steps (build, clean, restructure). Each has a list of gates to pass and, optionally, `allow` and `forbid` lists of paths. The starter file lists only the `acceptance` gate for each phase, because a new project has no unit tests yet. Add `"unit"` to each phase once it has them.
 
 **The Action reads this file from the pull request's base commit, not from the pull request.** A pull request that loosens a gate takes effect only after a person has reviewed and merged it. For the first pull request that adds the file, the working tree is used. The file is protected by the hook and listed in the CODEOWNERS template.
 
@@ -755,7 +755,7 @@ Read these with care:
 
 ## Project status
 
-Touchstone is an early beta. The current release is 0.9.1. Here is what has been checked and what has not.
+Touchstone is an early beta. The current release is 0.10.0. Here is what has been checked and what has not.
 
 **Verified by running it:**
 
@@ -787,9 +787,9 @@ The attack suite runs offline. A good next step would be a public repository hol
 
 ## Releases
 
-The current release is 0.9.1, published to npm as `@wosslabs/touchstone`.
+The current release is 0.10.0, published to npm as `@wosslabs/touchstone`.
 
-Pushing a tag such as `v0.9.2` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit. It does not publish to npm. Publishing is a separate step done by a person, because it needs two-factor authentication and cannot be undone:
+Pushing a tag such as `v0.10.1` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit. It does not publish to npm. Publishing is a separate step done by a person, because it needs two-factor authentication and cannot be undone:
 
 ```bash
 npm publish --access public
