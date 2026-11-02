@@ -2,7 +2,7 @@
   "name": "touchstone",
   "displayName": "Touchstone",
   "description": "A standalone behavior-first workflow. Approve a sentence, watch Cucumber and Playwright fail, then build. Every scenario stays traced to the step that runs it.",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "author": {
     "name": "wosslabs"
   },
