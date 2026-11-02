@@ -8,6 +8,11 @@
 /CODEOWNERS @YOUR_GITHUB_ORG/YOUR_TEAM
 /touchstone.json @YOUR_GITHUB_ORG/YOUR_TEAM
 
+# The scripts that quality gates run, and anything else listed under "protect" in
+# touchstone.json. `npx @wosslabs/touchstone gates codeowners --team @org/team` prints
+# a line for each protected path.
+/quality/ @YOUR_GITHUB_ORG/YOUR_TEAM
+
 # What runs the acceptance tests. A pull request that edits these can change
 # what "passing" means.
 /package.json @YOUR_GITHUB_ORG/YOUR_TEAM

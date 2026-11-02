@@ -11,6 +11,7 @@
 //       "red": { "command": "npx cucumber-js ... --name \"$TOUCHSTONE_SCENARIO\" ...", "setup": "npm ci --ignore-scripts" }
 //     },
 //     "quality": ["unit"],
+//     "protect": ["quality/**"],
 //     "mutation": { "mode": "warn", "maxMutants": 30 },
 //     "phases": {
 //       "clean": { "allow": ["src/**", "tests/**"], "gates": ["unit", "acceptance"] }
@@ -104,6 +105,9 @@ export function validate(config) {
       problems.push(`quality names an unknown gate "${name}"`);
     }
   }
+  if (config.protect !== undefined && !(Array.isArray(config.protect) && config.protect.every((item) => typeof item === "string" && item.trim() !== ""))) {
+    problems.push("protect must be a list of path globs");
+  }
   if (config.mutation !== undefined) {
     if (config.mutation.mode !== undefined && !MODES.has(config.mutation.mode)) {
       problems.push('mutation.mode must be "off", "warn" or "fail"');
@@ -161,4 +165,24 @@ export function loadConfig(repo, base = "") {
 export function gate(config, name) {
   const value = config.gates?.[name];
   return value === undefined ? null : gateCommand(value);
+}
+
+// Paths that judge a change, such as the scripts a quality gate runs. A person owns
+// them: the hook refuses agent edits, the phase fence forbids them, and the Action
+// runs the base commit's version of them.
+export function protectGlobs(config) {
+  return config?.protect ?? [];
+}
+
+// Warnings, not errors. A gate that runs an npm script is only as strong as the
+// package.json it reads, and a pull request can change that file.
+export function lint(config) {
+  const warnings = [];
+  for (const [name, value] of Object.entries(config.gates ?? {})) {
+    const command = gateCommand(value)?.command ?? "";
+    if (/\b(?:npm|pnpm|yarn)\s+(?:run|run-script)\b/.test(command)) {
+      warnings.push(`gate "${name}" runs a script from package.json (${command}). A pull request can change package.json. Call the tool directly, for example "node quality/${name}.js", and list that path under protect.`);
+    }
+  }
+  return warnings;
 }

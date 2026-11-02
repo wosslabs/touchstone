@@ -187,3 +187,38 @@ test("a broken config is reported, not ignored", () => {
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("the fence also forbids the paths listed under protect", () => {
+  const phase = { allow: ["src/**", "quality/**"] };
+  assert.equal(fenceViolations(["quality/arch.js"], phase).length, 0, "allowed when nothing is protected");
+  const violations = fenceViolations(["quality/arch.js", "src/a.js"], phase, ["quality/**"]);
+  assert.deepEqual(violations.map(([file]) => file), ["quality/arch.js"]);
+});
+
+test("gates list warns about a gate that runs an npm script", async () => {
+  const { lint } = await import("../ci/config.js");
+  const warnings = lint({ gates: { arch: "npm run arch", unit: "npm test", direct: "node quality/dup.js", pnpm: "pnpm run mutate" } });
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0], /gate "arch" runs a script from package\.json/);
+  assert.match(warnings[1], /gate "pnpm"/);
+});
+
+test("codeowners prints a line for every protected path", () => {
+  const repo = repoWith({});
+  try {
+    write(repo, "touchstone.json", JSON.stringify({ gates: { unit: "echo" }, protect: ["quality/**", "scripts/gate.sh"] }));
+    const lines = run(repo, "codeowners", "--team", "@acme/leads").stdout.trim().split("\n");
+    assert.ok(lines.includes("/quality/ @acme/leads"));
+    assert.ok(lines.includes("/scripts/gate.sh @acme/leads"));
+    assert.ok(lines.includes("/touchstone.json @acme/leads"));
+    assert.ok(lines.includes("/stories/ @acme/leads"));
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("the protect list is validated", () => {
+  assert.deepEqual(validate({ gates: {}, protect: ["quality/**"] }), []);
+  assert.equal(validate({ gates: {}, protect: "quality" }).length, 1);
+  assert.equal(validate({ gates: {}, protect: [""] }).length, 1);
+});

@@ -23,5 +23,8 @@
         "acceptance"
       ]
     }
-  }
+  },
+  "protect": [
+    "quality/**"
+  ]
 }

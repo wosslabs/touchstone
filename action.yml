@@ -68,6 +68,13 @@ runs:
       env:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
       run: node "${{ github.action_path }}/ci/action-config.js" --repo . --base "$BASE"
+    - name: Use the base commit's version of protected files
+      id: protect
+      if: inputs.base != '' || github.event.pull_request.base.sha != ''
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+      run: node "${{ github.action_path }}/ci/restore-protected.js" --repo . --base "$BASE" --report "$RUNNER_TEMP/touchstone-protected.txt"
     - name: Approved sentences did not shrink
       id: guard
       shell: bash
@@ -197,6 +204,7 @@ runs:
         TRACE_FILE: ${{ runner.temp }}/touchstone-trace.txt
         DRIVERS_FILE: ${{ runner.temp }}/touchstone-drivers.txt
         FAILURE_FILE: ${{ runner.temp }}/touchstone-failure.txt
+        PROTECTED_FILE: ${{ runner.temp }}/touchstone-protected.txt
         FAILED_STAGE: ${{ steps.report.outputs.failed }}
       with:
         script: |
@@ -205,6 +213,7 @@ runs:
           const trace = read(process.env.TRACE_FILE) || 'No trace was produced.'
           const drivers = read(process.env.DRIVERS_FILE)
           const failure = read(process.env.FAILURE_FILE)
+          const protectedChanges = read(process.env.PROTECTED_FILE)
           const stage = process.env.FAILED_STAGE
           const stages = {
             guard: 'An approved sentence was removed or reworded, or a test was switched off.',
@@ -222,6 +231,18 @@ runs:
             ? ['<details open><summary>Output of the failing stage (last lines)</summary>', '', '```text', failure, '```', '', '</details>', '']
             : []
           const marker = '<!-- touchstone-trace -->'
+          const protectedSection = protectedChanges
+            ? [
+                '### Protected files changed: a person must review these',
+                '',
+                'These files decide whether a change is good. The checks above ran with the base commit\'s version of them, so this change takes effect only after it is merged.',
+                '',
+                '```text',
+                protectedChanges,
+                '```',
+                '',
+              ]
+            : []
           const driverSection = drivers
             ? [
                 '### Driver changes: review these',
@@ -254,6 +275,7 @@ runs:
             ...status,
             ...failureSection,
             ...traceSection,
+            ...protectedSection,
             ...driverSection,
           ].join('\n')
           const { owner, repo } = context.repo

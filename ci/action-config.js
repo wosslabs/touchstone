@@ -26,6 +26,7 @@ export function outputsFor(config) {
     mutate_mode: config.mutation?.mode ?? "",
     mutate_max: String(config.mutation?.maxMutants ?? ""),
     quality: (config.quality ?? []).join("\n"),
+    protect: (config.protect ?? []).join("\n"),
   };
 }
 
