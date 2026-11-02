@@ -1,0 +1,2 @@
+Pull request test for "vacuous-assertion": checks the collapsed comment layout.
+Never merged.
