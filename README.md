@@ -17,6 +17,14 @@ That sentence is the requirement. Someone who uses or supports the product can a
 
 Touchstone works with Claude Code, Cursor, and any agent that reads a `SKILL.md` file, including GitHub Copilot and Codex. It is not related to other software that uses the same name.
 
+![Agents produce unlimited output. Touchstone's inner loop shapes it, its outer loop checks it without any AI, and a person decides only on one small pull request.](docs/images/outer-inner-loop.png)
+
+**Why two loops.** An agent can write code faster than anyone can read it. The scarce thing is a person's attention, so Touchstone is built around what a person can actually chew: one sentence, one failing test, one small pull request.
+
+- The **inner loop** is the agent working: build until the scenario passes, then clean, fix the dependencies, and harden the tests. It is cheap and fast, and it is advisory. Nothing it says is trusted.
+- The **outer loop** is deterministic. It runs in CI, with no AI in it, and it decides whether the change is good: the sentences are unchanged, the test failed first for the right reason, every value is really checked, the quality gates pass.
+- The **person** decides only what only a person can: whether the sentence says what the business wants, whether the failure is the missing behavior, and whether to merge. A red result goes back to the agent, so you never spend attention on it.
+
 **Status:** early beta. The Node, TypeScript, Java, Python, Go and Rust paths have all been run end to end. See [Project status](#project-status) for what has and has not been verified.
 
 ## Contents
@@ -28,6 +36,7 @@ Touchstone works with Claude Code, Cursor, and any agent that reads a `SKILL.md`
 - [Existing code bases: reverse engineering requirements](#existing-code-bases)
 - [Setting up a repository](#setting-up-a-repository)
 - [What the pull request checks](#what-the-pull-request-checks)
+- [The inner loop: clean, architect, harden](#the-inner-loop-clean-architect-harden)
 - [Examples by language](#examples-by-language)
 - [Held-back scenarios](#held-back-scenarios)
 - [Checking that agents follow the skills](#checking-that-agents-follow-the-skills)
@@ -260,7 +269,7 @@ templates/cursor-hooks.json   ->  .cursor/hooks.json
 
 ### The skills
 
-Six skills are installed together:
+Seven skills are installed together:
 
 | Skill | When it applies |
 | --- | --- |
@@ -268,6 +277,7 @@ Six skills are installed together:
 | `touchstone-features` | The request is a product, a release, or more than one visible outcome |
 | `touchstone` | One feature is chosen and has no approved failing sentence yet |
 | `touchstone-build` | You have agreed that the failure is the missing behavior |
+| `touchstone-refine` | The feature is built and green, before the pull request |
 | `touchstone-discover` | You want the requirements of an existing code base written down |
 | `touchstone-repair` | A run failed with a programming error, an undefined step, or an app that did not start |
 
@@ -681,6 +691,43 @@ Each change should answer four questions without anyone reading the chat.
 | Which step performed the sentence? | The definition file named in the trace |
 | What did the pipeline report? | The pull request comment from `wosslabs/touchstone` |
 
+## The inner loop: clean, architect, harden
+
+Once a feature is built and green, `touchstone-refine` makes three passes over what the agent changed, before the pull request:
+
+1. **Clean.** Remove duplication, name things clearly, delete dead code.
+2. **Architect.** Make dependencies point the right way. Business rules must not do file or network work. The I/O moves to the edge and is passed in. Behavior stays the same, so a log line or an audit record is moved, never deleted.
+3. **Harden.** Make the tests strong enough that a wrong change fails them. This pass touches tests only. If the project has a mutation tool for its code, each survivor becomes a new test.
+
+Each pass is its own small commit, checked by a command. The agent's opinion that a pass is done does not count.
+
+**Fence and gates.** If `touchstone.json` defines the phases `clean`, `architect` and `harden`, a person has decided what each pass may touch and which commands must pass. After each pass the agent runs `npx @wosslabs/touchstone gates phase <pass> --base <sha>`. It refuses a pass that touched `stories/`, a `.feature` file, the workflows, `touchstone.json` or `CODEOWNERS`, and anything outside the pass's `allow` list, and only then runs the pass's gates. See [The gate config](#the-gate-config-touchstonejson). Without phases the skill still makes the three passes, with the project's own commands as the gates, and says so in the pull request.
+
+**It is advisory.** The outer loop is still the verdict. These passes make a green pull request more likely and make it easier to read. They do not replace the checks that decide.
+
+### Does it help?
+
+This was measured, because "an agent that cleans up after itself" is easy to believe and easy to get wrong. `examples/refine-orders` is a small working order service with three seeded defects: the same money-formatting code copied three times, a domain module that writes a file, and unit tests so weak that six of fourteen code mutants survive. Three oracle scripts, kept outside the project where an agent cannot edit them, count how many defects remain. A fourth checks that behavior survived, including audit logging that the acceptance scenarios do not cover. Each arm got the same one-line request ("get this change ready for review"), five runs each, with `claude -p`:
+
+| Arm | Defects fixed (of 3) | Runs fixing all three |
+| --- | --- | --- |
+| Plain request, project has quality scripts, plugin without the skill | 0.4 | 0 of 5 |
+| Same, plus one sentence: "clean up, check the architecture, make the tests strong" | 3.0 | 5 of 5 |
+| Skill and `touchstone.json` phases configured, plain request | 3.0 | 5 of 5 |
+| Plain request, **no** quality scripts in the project, plugin without the skill | 0.0 | 0 of 5 |
+| Same, plus the one sentence | 2.2 | 1 of 5 |
+| Skill, no phases, no quality scripts, plain request | 2.8 | 4 of 5 |
+
+Behavior was preserved in every run. What this shows, and what it does not:
+
+- **An agent asked only to get a change ready for review does not improve its quality.** 0.4 and 0.0 of 3. Something has to ask for it. Without the skill or an instruction, nothing does.
+- **The skill puts the policy in the repository instead of in everyone's prompt.** With the skill and phases configured, a plain request gives 3.0 of 3. The configured and plain arms differ clearly (p = 0.008, Fisher's exact test).
+- **It does not beat a one-sentence instruction when the project has the tools.** Both reach 3.0. If your team always writes that sentence, the skill adds nothing for these three defects. This fixture cannot tell them apart.
+- **Hardening the tests is the hard part, and gates matter.** With no mutation tool, an instruction fixed the weak tests in 1 of 5 runs, and the skill's hardening pass in 4 of 5. That is suggestive, not established (p = 0.21). With the mutation tool available, both fixed them every time.
+- **Cost is small.** About 15 to 25 cents a run, and 9 to 16 turns on average instead of 7 to 8 for the plain request.
+
+Read these limits before trusting them. It is one small project with defects chosen by the author, judged by oracles the author wrote. It is one model and five runs per arm. The oracles measure whether defects are gone, not whether the result reads well to a person. The first round of this experiment was wrong: the skill fired in the baseline arm too, so it measured nothing, and one run stopped because the skill had no instructions for a project without phases. That is fixed, and the baseline now uses the plugin from before the skill existed. A usage limit also cut one arm short, and the harness now reports that as "not run" instead of as a failure. A real code base will have defects this fixture does not.
+
 ## Examples by language
 
 Every example is the same small todo list with the same approved story, so you can compare how the acceptance layer looks in each stack. Steps talk to the running system only. Unit tests are kept apart from acceptance scenarios. Each folder has its own README with commands and a workflow.
@@ -726,6 +773,7 @@ node evals/run.js --dry          # print the commands without calling the model
 | `builds-against-approved-sentence` | With an approved story, the agent changes production code and leaves the story alone. |
 | `runs-test-before-code` | The agent runs the scenario and sees it fail before writing production code. |
 | `stops-after-red` | Asked only to show the failure, the agent writes no production code. |
+| `refine-*` (six arms) | The inner-loop experiment above: seeded defects, oracle scripts, a baseline built from an older plugin (`pluginRef`). |
 | `discovers-existing-system` | On an old service, the agent leaves the code alone, writes scenarios with evidence, and afterwards the evidence check and its own scenarios pass. |
 
 Writing a failing unit test before the first acceptance run is allowed. Only production code written before that run, or without any acceptance run, counts as a failure.
@@ -768,7 +816,7 @@ Touchstone is an early beta. The current release is 0.10.0. Here is what has bee
 
 **Built, and run on GitHub through the Action:** Gherkin value mutation and reading `touchstone.json` from the base commit. The quality gates and the phase fence are checked in unit tests only. The mutator was also run for real on the TypeScript example and on `examples/legacy-orders`.
 
-**Not built yet:** the agent's inner loop as a set of phases (build, clean, restructure, harden, verify). The config and the fence that such phases need exist. The skills that walk an agent through the phases do not, and nothing yet shows that extra review phases improve results. That needs an evaluation with seeded defects before it is worth claiming.
+**Built and measured once:** the inner loop (`touchstone-refine`). On one small fixture it clearly beats a plain request and ties a one-sentence instruction. It has not been run on a real code base, and the part where it might beat an instruction (writing tests when no mutation tool exists) is not established. See [Does it help?](#does-it-help).
 
 **Not verified yet:**
 
@@ -817,6 +865,8 @@ While the project is 0.x, workflow templates use `wosslabs/touchstone@v0`. At 1.
 | `examples/` | The same todo list in seven stacks |
 | `templates/` | Workflow, CODEOWNERS and Cursor hook files to copy |
 | `evals/` | The harness that tests whether agents follow the skills |
+| `docs/` | The diagram (`docs/images/outer-inner-loop.png`, with its SVG source and render script in `docs/diagrams/`) |
+| `examples/refine-orders` | The seeded-defect fixture for the inner-loop experiment |
 | `attacks/` | Bad changes the pipeline must reject, and one honest change it must accept |
 | `tests/` | Unit tests for the hook, the checks, init and the eval checks |
 

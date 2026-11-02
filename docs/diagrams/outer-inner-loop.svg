@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1060" width="1800" height="1060" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="funnel" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#dbe7ff"/>
+      <stop offset="0.5" stop-color="#e3f3ea"/>
+      <stop offset="1" stop-color="#fde9d6"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c8402f"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#1b2430" flood-opacity="0.13"/>
+    </filter>
+  </defs>
+
+  <rect width="1800" height="1060" fill="#fbfaf7"/>
+
+  <!-- Title -->
+  <text x="60" y="84" font-size="46" font-weight="700" fill="#1b2430">Agents can cook without limit. You can only chew so much.</text>
+  <text x="60" y="128" font-size="24" fill="#5b6675">Touchstone shapes agent output into bite-size pieces, and spends your attention only where only a person can decide.</text>
+
+  <!-- Funnel silhouette -->
+  <polygon points="40,190 1760,330 1760,690 40,830" fill="url(#funnel)"/>
+
+  <!-- ZONE 1: AGENTS -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="215" width="410" height="590" rx="18" fill="#ffffff"/>
+    <rect x="60" y="215" width="410" height="10" rx="5" fill="#2f6fed"/>
+  </g>
+  <text x="90" y="272" font-size="30" font-weight="700" fill="#2f6fed">AGENTS</text>
+  <text x="90" y="304" font-size="21" font-style="italic" fill="#5b6675">plenty of food, any hour</text>
+  <g font-size="17" fill="#1f4fb8" text-anchor="middle">
+    <g fill="#e6eeff" stroke="#b9ccf7">
+      <rect x="86" y="330" width="100" height="40" rx="9"/><rect x="196" y="330" width="100" height="40" rx="9"/><rect x="306" y="330" width="100" height="40" rx="9"/>
+      <rect x="86" y="382" width="100" height="40" rx="9"/><rect x="196" y="382" width="100" height="40" rx="9"/><rect x="306" y="382" width="100" height="40" rx="9"/>
+      <rect x="86" y="434" width="100" height="40" rx="9"/><rect x="196" y="434" width="100" height="40" rx="9"/><rect x="306" y="434" width="100" height="40" rx="9"/>
+      <rect x="86" y="486" width="100" height="40" rx="9" opacity="0.75"/><rect x="196" y="486" width="100" height="40" rx="9" opacity="0.75"/><rect x="306" y="486" width="100" height="40" rx="9" opacity="0.75"/>
+      <rect x="86" y="538" width="100" height="40" rx="9" opacity="0.5"/><rect x="196" y="538" width="100" height="40" rx="9" opacity="0.5"/><rect x="306" y="538" width="100" height="40" rx="9" opacity="0.5"/>
+      <rect x="86" y="590" width="100" height="40" rx="9" opacity="0.3"/><rect x="196" y="590" width="100" height="40" rx="9" opacity="0.3"/><rect x="306" y="590" width="100" height="40" rx="9" opacity="0.3"/>
+    </g>
+    <text x="136" y="356">feature</text><text x="246" y="356">refactor</text><text x="356" y="356">tests</text>
+    <text x="136" y="408">bug fix</text><text x="246" y="408">migration</text><text x="356" y="408">docs</text>
+    <text x="136" y="460">feature</text><text x="246" y="460">cleanup</text><text x="356" y="460">tests</text>
+    <text x="136" y="512" opacity="0.75">feature</text><text x="246" y="512" opacity="0.75">bug fix</text><text x="356" y="512" opacity="0.75">refactor</text>
+    <text x="136" y="564" opacity="0.5">tests</text><text x="246" y="564" opacity="0.5">feature</text><text x="356" y="564" opacity="0.5">docs</text>
+  </g>
+  <text x="265" y="672" font-size="64" font-weight="700" fill="#2f6fed" opacity="0.8" text-anchor="middle">...</text>
+  <text x="265" y="730" font-size="22" font-weight="700" fill="#1b2430" text-anchor="middle">Output is cheap and endless.</text>
+  <text x="265" y="762" font-size="20" fill="#5b6675" text-anchor="middle">Attention is not.</text>
+
+  <!-- chevron 1 -->
+  <path d="M478 485 L494 505 L478 525" fill="none" stroke="#7a8696" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- ZONE 2: INNER LOOP -->
+  <g filter="url(#shadow)">
+    <rect x="500" y="255" width="410" height="545" rx="18" fill="#ffffff"/>
+    <rect x="500" y="255" width="410" height="10" rx="5" fill="#2f6fed"/>
+  </g>
+  <text x="530" y="312" font-size="30" font-weight="700" fill="#2f6fed">INNER LOOP</text>
+  <text x="530" y="344" font-size="21" font-style="italic" fill="#5b6675">the agent shapes the bite</text>
+  <g font-size="22" font-weight="600" fill="#1f4fb8">
+    <rect x="530" y="366" width="350" height="50" rx="12" fill="#e6eeff"/><text x="552" y="399">1  Build until it passes</text>
+    <rect x="530" y="426" width="350" height="50" rx="12" fill="#e6eeff"/><text x="552" y="459">2  Clean the duplication</text>
+    <rect x="530" y="486" width="350" height="50" rx="12" fill="#e6eeff"/><text x="552" y="519">3  Fix the dependencies</text>
+    <rect x="530" y="546" width="350" height="50" rx="12" fill="#e6eeff"/><text x="552" y="579">4  Harden the tests</text>
+  </g>
+  <text x="530" y="620" font-size="17" fill="#5b6675">Each pass is one small, checked commit.</text>
+  <text x="530" y="654" font-size="19" fill="#1b2430"><tspan font-weight="700">Starts only after you:</tspan></text>
+  <g font-size="19" fill="#1b2430">
+    <circle cx="541" cy="679" r="12" fill="#e07b24"/><text x="541" y="686" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+    <text x="563" y="686">approve the sentence</text>
+    <circle cx="541" cy="711" r="12" fill="#e07b24"/><text x="541" y="718" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+    <text x="563" y="718">agree the failure is the gap</text>
+  </g>
+  <text x="530" y="756" font-size="17" fill="#5b6675">AI, advisory, fenced: cannot touch the</text>
+  <text x="530" y="778" font-size="17" fill="#5b6675">sentences, the config or the workflows.</text>
+
+  <!-- chevron 2 -->
+  <path d="M918 485 L934 505 L918 525" fill="none" stroke="#7a8696" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- ZONE 3: OUTER LOOP -->
+  <g filter="url(#shadow)">
+    <rect x="940" y="295" width="410" height="430" rx="18" fill="#ffffff"/>
+    <rect x="940" y="295" width="410" height="10" rx="5" fill="#1f8f5f"/>
+  </g>
+  <text x="970" y="352" font-size="30" font-weight="700" fill="#1f8f5f">OUTER LOOP</text>
+  <text x="970" y="384" font-size="21" font-style="italic" fill="#5b6675">no AI in this loop</text>
+  <g font-size="20" fill="#1b2430" font-weight="500">
+    <g fill="none" stroke="#1f8f5f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M972 412 l7 8 l14 -16"/><path d="M972 452 l7 8 l14 -16"/><path d="M972 492 l7 8 l14 -16"/>
+      <path d="M972 532 l7 8 l14 -16"/><path d="M972 572 l7 8 l14 -16"/><path d="M972 612 l7 8 l14 -16"/>
+    </g>
+    <text x="1008" y="420">Sentences unchanged</text>
+    <text x="1008" y="460">Sentence to test to step, traced</text>
+    <text x="1008" y="500">Fails first, for the right reason</text>
+    <text x="1008" y="540">Every value is really checked</text>
+    <text x="1008" y="580">Quality gates pass</text>
+    <text x="1008" y="620">Acceptance passes</text>
+  </g>
+  <rect x="970" y="650" width="350" height="50" rx="12" fill="#e3f3ea"/>
+  <text x="1145" y="683" font-size="21" font-weight="700" fill="#1f8f5f" text-anchor="middle">Deterministic CI is the verdict</text>
+
+  <!-- chevron 3 -->
+  <path d="M1358 485 L1374 505 L1358 525" fill="none" stroke="#7a8696" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- ZONE 4: YOU -->
+  <g filter="url(#shadow)">
+    <rect x="1380" y="335" width="360" height="350" rx="18" fill="#ffffff"/>
+    <rect x="1380" y="335" width="360" height="10" rx="5" fill="#e07b24"/>
+  </g>
+  <text x="1410" y="392" font-size="30" font-weight="700" fill="#c4660f">YOU</text>
+  <text x="1410" y="422" font-size="21" font-style="italic" fill="#5b6675">human in the loop</text>
+  <ellipse cx="1560" cy="494" rx="84" ry="54" fill="#fde9d6" stroke="#e07b24" stroke-width="3"/>
+  <text x="1560" y="490" font-size="20" font-weight="700" fill="#8a4509" text-anchor="middle">1 feature</text>
+  <text x="1560" y="514" font-size="20" font-weight="700" fill="#8a4509" text-anchor="middle">1 small PR</text>
+  <g font-size="19" fill="#1b2430">
+    <circle cx="1422" cy="580" r="12" fill="#e07b24"/><text x="1422" y="587" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">1</text><text x="1444" y="587">Approve the sentence</text>
+    <circle cx="1422" cy="614" r="12" fill="#e07b24"/><text x="1422" y="621" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">2</text><text x="1444" y="621">Agree the failure</text>
+    <circle cx="1422" cy="648" r="12" fill="#e07b24"/><text x="1422" y="655" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">3</text><text x="1444" y="655">Read it. Merge it.</text>
+  </g>
+
+  <!-- send-back loop -->
+  <path d="M1145 725 L1145 818 Q1145 836 1127 836 L728 836 Q710 836 710 818 L710 806" fill="none" stroke="#c8402f" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 9" marker-end="url(#arrow)"/>
+  <rect x="755" y="851" width="360" height="40" rx="20" fill="#fbe9e6"/>
+  <text x="935" y="878" font-size="21" font-weight="700" fill="#c8402f" text-anchor="middle">red? back to the agent, not to you</text>
+
+  <!-- Takeaway band -->
+  <line x1="60" y1="918" x2="1740" y2="918" stroke="#d9d6cd" stroke-width="2"/>
+  <text x="900" y="974" font-size="32" font-weight="700" fill="#1b2430" text-anchor="middle">The unit of work is the bite you can chew:</text>
+  <text x="900" y="1018" font-size="28" fill="#1b2430" text-anchor="middle">one sentence, one failing test, one small pull request you can explain in a minute.</text>
+</svg>
