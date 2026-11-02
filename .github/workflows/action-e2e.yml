@@ -78,3 +78,14 @@ jobs:
             echo "the Action accepted a change it should have rejected" >&2
             exit 1
           fi
+          stage="${{ matrix.attack.stage }}"
+          failed="${{ steps.touchstone.outputs.failed_stage }}"
+          echo "stage that should stop it: ${stage:-any}; stage that did: ${failed:-none}"
+          if [ -n "$stage" ] && [ "$failed" != "$stage" ]; then
+            echo "the wrong stage stopped it" >&2
+            exit 1
+          fi
+          if [ "$expected" = "green" ] && [ -n "$failed" ]; then
+            echo "a stage failed on the honest change: $failed" >&2
+            exit 1
+          fi
