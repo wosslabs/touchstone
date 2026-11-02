@@ -1,0 +1,2 @@
+Real pull request test for the "vacuous-assertion" attack.
+This pull request is never merged.
