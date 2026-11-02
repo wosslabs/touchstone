@@ -6,6 +6,7 @@
 /.claude/ @YOUR_GITHUB_ORG/YOUR_TEAM
 /.cursor/hooks/ @YOUR_GITHUB_ORG/YOUR_TEAM
 /CODEOWNERS @YOUR_GITHUB_ORG/YOUR_TEAM
+/touchstone.json @YOUR_GITHUB_ORG/YOUR_TEAM
 
 # What runs the acceptance tests. A pull request that edits these can change
 # what "passing" means.

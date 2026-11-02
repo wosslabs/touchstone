@@ -78,6 +78,23 @@ const ATTACKS = [
     },
   },
   {
+    name: "vacuous-assertion",
+    expect: "red",
+    note: "a Then step stops checking anything, and no scenario changed",
+    apply(dir) {
+      edit(dir, "features/steps.ts", (text) => text.replace('assert.ok((await titles(this)).includes(title), `Expected the list to show "${title}"`);', "await titles(this);"));
+    },
+  },
+  {
+    name: "vacuous-assertion-and-mutation-switched-off",
+    expect: "red",
+    note: "the same, and the pull request also turns mutation off in touchstone.json",
+    apply(dir) {
+      edit(dir, "features/steps.ts", (text) => text.replace('assert.ok((await titles(this)).includes(title), `Expected the list to show "${title}"`);', "await titles(this);"));
+      writeFileSync(join(dir, "touchstone.json"), `${JSON.stringify({ gates: { acceptance: ACCEPTANCE }, mutation: { mode: "off" } })}\n`);
+    },
+  },
+  {
     name: "focused-test",
     expect: "red",
     note: "test.only hides every other test",
@@ -142,6 +159,7 @@ function pipeline(dir) {
     ["guard", () => node("check-acceptance-guard.js", ["--base", "HEAD~1"])],
     ["trace", () => node("check-trace.js", [])],
     ["red", () => node("check-red-green.js", ["--base", "HEAD~1", "--command", RED, "--setup", `ln -s ${modules} node_modules`])],
+    ["mutation", () => node("mutate-gherkin.js", ["--base", "HEAD~1", "--command", RED])],
     ["acceptance", () => sh(dir, ACCEPTANCE)],
   ];
   const failed = [];
@@ -159,6 +177,7 @@ function prepare() {
   cpSync(fixture, dir, { recursive: true, filter: (source) => !source.includes("node_modules") });
   symlinkSync(modules, join(dir, "node_modules"));
   writeFileSync(join(dir, ".gitignore"), "node_modules\n");
+  writeFileSync(join(dir, "touchstone.json"), `${JSON.stringify({ gates: { acceptance: ACCEPTANCE }, mutation: { mode: "fail" } }, null, 2)}\n`);
   const git = (...args) => execFileSync("git", ["-c", "user.email=attacks@example.com", "-c", "user.name=Attacks", ...args], { cwd: dir, stdio: "pipe" });
   git("init", "-q", "-b", "main");
   git("add", "-A");

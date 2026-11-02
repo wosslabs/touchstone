@@ -148,3 +148,28 @@ export function classifyCase({ steps }) {
   }
   return "";
 }
+
+// Judges a run of a mutated scenario: "killed" when an assertion-style failure
+// shows the scenario noticed the change, "invalid" when the run only broke
+// (undefined step, programming error, failing hook, nothing ran), and
+// "survived" when every matching scenario still passed.
+export function mutantOutcome(cases) {
+  if (cases.length === 0) {
+    return "invalid";
+  }
+  let broken = false;
+  for (const { steps } of cases) {
+    for (const step of steps) {
+      if (["UNDEFINED", "PENDING", "AMBIGUOUS"].includes(step.status)) {
+        broken = true;
+      } else if (step.status === "FAILED") {
+        if (step.type === "Hook" || PROGRAMMING_ERROR.test(step.error)) {
+          broken = true;
+        } else {
+          return "killed";
+        }
+      }
+    }
+  }
+  return broken ? "invalid" : "survived";
+}

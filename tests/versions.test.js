@@ -13,3 +13,8 @@ test("plugin manifests carry the package version", () => {
   assert.equal(json(".cursor-plugin/plugin.json").version, version);
   assert.equal(json(".claude-plugin/marketplace.json").plugins[0].version, version);
 });
+
+test("the starter touchstone.json is valid", async () => {
+  const { validate } = await import("../ci/config.js");
+  assert.deepEqual(validate(json("templates/touchstone.json")), []);
+});

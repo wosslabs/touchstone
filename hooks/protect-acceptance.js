@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 
-const DENY_REASON = "Touchstone keeps stories, .github/workflows, .claude, .cursor/hooks, CODEOWNERS, ci/check-acceptance-guard.js, ci/check-trace.js, and ci/check-red-green.js for a person to edit.";
+const DENY_REASON = "Touchstone keeps stories, .github/workflows, .claude, .cursor/hooks, CODEOWNERS, touchstone.json, ci/check-acceptance-guard.js, ci/check-trace.js, and ci/check-red-green.js for a person to edit.";
 const READ_TOOLS = new Set(["read", "grep", "glob", "webfetch", "websearch", "readlints", "semanticsearch"]);
 const PATH_KEYS = new Set(["path", "file_path", "filepath", "target_file", "target_notebook", "notebook_path"]);
 const SHELL_TOOLS = new Set(["bash", "shell"]);
 const WRITE_HINTS = /(?:^|[;&|]\s*)(?:rm|mv|cp|tee|touch|mkdir|truncate|dd|unlink)\b|\bfind\b[^\n]*\s-(?:delete|exec|execdir|fprint|fprintf|fls|ok|okdir)\b|\bsed\b[^\n]*\s-[^\n]*i|\bperl\b[^\n]*\s-[^\n]*i|\bgit\s+(?:checkout|restore|clean|apply|am)\b/i;
 const READ_OR_TEST = /(?:^|[;&|]\s*)(?:cat|ls|rg|grep|head|tail|wc|bat|less|stat|file|find|git\s+(?:diff|show|log|status|blame)|pytest|mvn|mvnw|gradle|gradlew|npm\s+test|npm\s+run\s+acceptance|pnpm\s+test|yarn\s+test|npx\s+cucumber-js|node\s+ci\/check-(?:acceptance-guard|trace)\.js|go\s+test|cargo\s+test|bun\s+test)\b/i;
 const PROTECTED_DIRS = ["stories", ".github/workflows", ".claude", ".cursor/hooks"];
-const PROTECTED_FILES = ["ci/check-acceptance-guard.js", "ci/check-trace.js", "ci/check-red-green.js", "ci/red-reason.js", "ci/gherkin.js", "CODEOWNERS"];
+const PROTECTED_FILES = ["ci/check-acceptance-guard.js", "ci/check-trace.js", "ci/check-red-green.js", "ci/red-reason.js", "ci/gherkin.js", "ci/config.js", "ci/gates.js", "ci/mutate-gherkin.js", "touchstone.json", "CODEOWNERS"];
 
 function isProtected(path) {
   let normalized = path.replaceAll("\\", "/");

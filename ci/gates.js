@@ -3,7 +3,7 @@
 // agent's inner loop stayed inside its fence.
 //
 //   node ci/gates.js list
-//   node ci/gates.js run <gate> [--repo path]
+//   node ci/gates.js run <gate> [--base ref] [--repo path]
 //   node ci/gates.js phase <phase> [--base ref] [--repo path]
 //
 // `run` executes the gate's command from the protected config, so a skill can say
@@ -75,7 +75,7 @@ function main() {
       return 0;
     }
     if (action === "run") {
-      config = load(repo, "");
+      config = load(repo, option("--base"));
       const found = name ? gate(config, name) : null;
       if (!found) {
         console.error(`gates: no gate named "${name ?? ""}"`);

@@ -33,6 +33,10 @@ inputs:
     description: Shell command that prepares the base checkout for the red check, for example "npm ci".
     required: false
     default: ""
+  mutate:
+    description: 'Gherkin value mutation: "off", "warn" or "fail". Changes one value at a time in each new or changed scenario (or in every scenario when a step definition changed) and expects the scenario to fail. A survivor means nothing checks that value. Defaults to the mutation.mode in touchstone.json, or "off". Uses the red-command to run one scenario.'
+    required: false
+    default: ""
   holdout-command:
     description: Shell command that fetches and runs held-back scenarios the agent never sees, for example from a private repository using a secret the agent cannot read. Runs after the acceptance command. Empty skips.
     required: false
@@ -54,6 +58,12 @@ runs:
       env:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
       run: git fetch --no-tags origin "$BASE"
+    - name: Read the gate config from the base commit
+      id: config
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+      run: node "${{ github.action_path }}/ci/action-config.js" --repo . --base "$BASE"
     - name: Approved sentences did not shrink
       shell: bash
       env:
@@ -72,12 +82,12 @@ runs:
         node "${{ github.action_path }}/ci/check-trace.js" | tee "$RUNNER_TEMP/touchstone-trace.txt"
         echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
     - name: New scenarios fail before the code exists
-      if: inputs.red-command != '' && (inputs.base != '' || github.event.pull_request.base.sha != '')
+      if: (inputs.red-command != '' || steps.config.outputs.red_command != '') && (inputs.base != '' || github.event.pull_request.base.sha != '')
       shell: bash
       env:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
-        RED_COMMAND: ${{ inputs.red-command }}
-        SETUP_COMMAND: ${{ inputs.setup }}
+        RED_COMMAND: ${{ inputs.red-command || steps.config.outputs.red_command }}
+        SETUP_COMMAND: ${{ inputs.setup || steps.config.outputs.setup }}
         OVERLAY: ${{ inputs.overlay }}
         UNCHECKED: ${{ inputs.red-reason-unchecked }}
         BATCH: ${{ inputs.red-batch }}
@@ -91,11 +101,37 @@ runs:
         fi
         node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND" --overlay "$OVERLAY" "${flags[@]}"
     - name: Acceptance tests pass
-      if: inputs.command != ''
+      if: inputs.command != '' || steps.config.outputs.command != ''
       shell: bash
       env:
-        ACCEPTANCE_COMMAND: ${{ inputs.command }}
+        ACCEPTANCE_COMMAND: ${{ inputs.command || steps.config.outputs.command }}
       run: bash -c "$ACCEPTANCE_COMMAND"
+    - name: Quality gates pass
+      if: steps.config.outputs.quality != ''
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+        GATES: ${{ steps.config.outputs.quality }}
+      run: |
+        while IFS= read -r name; do
+          [ -n "$name" ] || continue
+          node "${{ github.action_path }}/ci/gates.js" run "$name" --base "$BASE" --repo .
+        done <<< "$GATES"
+    - name: Every value in a scenario is checked
+      if: (inputs.mutate != '' && inputs.mutate != 'off') || (inputs.mutate == '' && steps.config.outputs.mutate_mode != '' && steps.config.outputs.mutate_mode != 'off')
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+        MODE: ${{ inputs.mutate || steps.config.outputs.mutate_mode }}
+        MUTATE_COMMAND: ${{ inputs.red-command || steps.config.outputs.red_command }}
+        MAX_MUTANTS: ${{ steps.config.outputs.mutate_max }}
+        OVERLAY: ${{ inputs.overlay }}
+      run: |
+        flags=()
+        if [ -n "$MAX_MUTANTS" ]; then
+          flags+=(--max-mutants "$MAX_MUTANTS")
+        fi
+        node "${{ github.action_path }}/ci/mutate-gherkin.js" --repo . --base "$BASE" --command "$MUTATE_COMMAND" --mode "$MODE" --overlay "$OVERLAY" "${flags[@]}"
     - name: Held-back scenarios pass
       if: inputs.holdout-command != ''
       shell: bash
@@ -109,7 +145,7 @@ runs:
       run: |
         : > "$RUNNER_TEMP/touchstone-drivers.txt"
         if [ -n "$BASE" ]; then
-          git diff --name-only "$BASE" HEAD -- features src/acceptanceTest package.json package-lock.json cucumber.js pom.xml build.gradle build.gradle.kts mvnw .mvn | grep -v '\.feature$' > "$RUNNER_TEMP/touchstone-drivers.txt" || true
+          git diff --name-only "$BASE" HEAD -- features src/acceptanceTest package.json package-lock.json cucumber.js touchstone.json pom.xml build.gradle build.gradle.kts mvnw .mvn | grep -v '\.feature$' > "$RUNNER_TEMP/touchstone-drivers.txt" || true
         fi
     - name: Publish the trace
       if: inputs.comment == 'true' && github.event_name == 'pull_request'

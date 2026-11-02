@@ -18,6 +18,9 @@ test("creates the acceptance layout", () => {
     const result = runInit(["--dir", root]);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.throws(() => readFileSync(join(root, "ci", "check-trace.js")));
+    const config = JSON.parse(readFileSync(join(root, "touchstone.json"), "utf8"));
+    assert.equal(config.mutation.mode, "warn");
+    assert.deepEqual(Object.keys(config.gates).sort(), ["acceptance", "red", "unit"]);
     assert.match(readFileSync(join(root, ".github", "workflows", "acceptance-guard.yml"), "utf8"), /wosslabs\/touchstone@v0/);
   } finally {
     rmSync(root, { recursive: true, force: true });

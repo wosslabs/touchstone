@@ -1,0 +1,16 @@
+{
+  "gates": {
+    "acceptance": "npx cucumber-js --strict",
+    "red": {
+      "command": "npx cucumber-js --strict --name \"$TOUCHSTONE_SCENARIO\" --format message:\"$TOUCHSTONE_MESSAGES\"",
+      "setup": "npm ci --ignore-scripts"
+    },
+    "unit": "npm test"
+  },
+  "quality": [],
+  "mutation": { "mode": "warn", "maxMutants": 30 },
+  "phases": {
+    "build": { "gates": ["unit", "acceptance"] },
+    "clean": { "gates": ["unit", "acceptance"] }
+  }
+}

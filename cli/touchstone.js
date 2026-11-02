@@ -92,6 +92,10 @@ function init(directory) {
     join(directory, ".github", "workflows", "acceptance-guard.yml"),
   );
   copyIfMissing(
+    join(packageRoot, "templates", "touchstone.json"),
+    join(directory, "touchstone.json"),
+  );
+  copyIfMissing(
     join(packageRoot, "templates", "CODEOWNERS"),
     join(directory, "CODEOWNERS"),
   );
@@ -119,6 +123,7 @@ const CHECKS = {
   evidence: "check-evidence.js",
   requirements: "requirements-doc.js",
   gates: "gates.js",
+  mutate: "mutate-gherkin.js",
 };
 
 const command = process.argv[2];
@@ -128,7 +133,7 @@ if (CHECKS[command]) {
   process.exit(result.status ?? 1);
 }
 if (command !== "init") {
-  console.error("usage: touchstone init [--dir path] [--features path]\n       touchstone check [--repo path]\n       touchstone guard [--base sha] [--repo path]\n       touchstone red --base sha --command cmd [--setup cmd] [--repo path]\n       touchstone discover [--repo path] [--out dir]\n       touchstone evidence [--repo path] [--drafts dir] [--require-coverage]\n       touchstone requirements [--repo path] [--drafts dir] [--out file]\n       touchstone gates list | run <gate> | phase <phase> [--base ref]");
+  console.error("usage: touchstone init [--dir path] [--features path]\n       touchstone check [--repo path]\n       touchstone guard [--base sha] [--repo path]\n       touchstone red --base sha --command cmd [--setup cmd] [--repo path]\n       touchstone discover [--repo path] [--out dir]\n       touchstone evidence [--repo path] [--drafts dir] [--require-coverage]\n       touchstone requirements [--repo path] [--drafts dir] [--out file]\n       touchstone gates list | run <gate> | phase <phase> [--base ref]\n       touchstone mutate --command cmd (--base sha | --all) [--mode warn|fail]");
   process.exit(1);
 }
 init(resolve(argument("--dir") || "."));
