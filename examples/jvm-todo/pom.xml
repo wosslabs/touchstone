@@ -20,8 +20,6 @@
     <cucumber.version>7.34.9</cucumber.version>
     <!-- -DskipUnitTests=true runs only the acceptance scenarios. -->
     <skipUnitTests>false</skipUnitTests>
-    <!-- Mutation testing of the code (PIT). A pull request that lowers this fails the gate. -->
-    <pitMutationThreshold>90</pitMutationThreshold>
   </properties>
 
   <dependencies>
@@ -107,6 +105,9 @@
             <version>1.2.3</version>
           </dependency>
         </dependencies>
+        <!-- PIT only produces the report. The pass mark and the classes that must be
+             mutated are in touchstone.json and judged by quality/pit-gate.js, because
+             a pull request can edit this file. -->
         <configuration>
           <targetClasses>
             <param>example.todo.TaskList</param>
@@ -114,7 +115,6 @@
           <targetTests>
             <param>example.todo.TaskListTest</param>
           </targetTests>
-          <mutationThreshold>${pitMutationThreshold}</mutationThreshold>
           <outputFormats>
             <param>XML</param>
           </outputFormats>

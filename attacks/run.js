@@ -259,7 +259,132 @@ function materialize(dir, name) {
   return 0;
 }
 
+// --- The Java suite -------------------------------------------------------
+// The same idea against examples/jvm-todo: the judging tools there are an ArchUnit
+// rule and PIT's pass mark, so those are what the attacks go after.
+const jvmFixture = join(root, "examples", "jvm-todo");
+const TASK_LIST = join("src", "main", "java", "example", "todo", "TaskList.java");
+const ARCH_TEST = join("src", "test", "java", "example", "todo", "ArchitectureTest.java");
+const TASK_LIST_TEST = join("src", "test", "java", "example", "todo", "TaskListTest.java");
+
+const addWebImport = (dir) =>
+  edit(dir, TASK_LIST, (text) => text.replace("import java.util.List;", "import java.util.List;\nimport org.springframework.http.HttpStatus;").replace("titles.add(title);", "titles.add(title);\n        HttpStatus.valueOf(200);"));
+
+const addUntestedMethod = (dir) =>
+  edit(dir, TASK_LIST, (text) => `${text.trimEnd().slice(0, -1)}\n    public int untested(int a, int b) {\n        if (a > b) {\n            return a - b;\n        }\n        return b - a;\n    }\n}\n`);
+
+const JVM_ATTACKS = [
+  {
+    name: "jvm-honest-change",
+    expect: "green",
+    note: "a new method with its test",
+    apply(dir) {
+      edit(dir, TASK_LIST, (text) => `${text.trimEnd().slice(0, -1)}\n    public int size() {\n        return titles.size();\n    }\n}\n`);
+      edit(dir, TASK_LIST_TEST, (text) => `${text.trimEnd().slice(0, -1)}\n    @Test\n    void countsTheTasks() {\n        TaskList list = new TaskList();\n        assertThat(list.size()).isZero();\n        list.add("Buy milk");\n        assertThat(list.size()).isEqualTo(1);\n    }\n}\n`);
+    },
+  },
+  {
+    name: "jvm-delete-arch-rule",
+    expect: "red",
+    stage: "architecture",
+    note: "the ArchUnit rule is deleted in the change that breaks it",
+    apply(dir) {
+      rmSync(join(dir, ARCH_TEST));
+      addWebImport(dir);
+    },
+  },
+  {
+    name: "jvm-weaken-arch-rule",
+    expect: "red",
+    stage: "architecture",
+    note: "the rule still runs but can never be violated, in the change that breaks it",
+    apply(dir) {
+      edit(dir, ARCH_TEST, (text) => text.replace('resideInAnyPackage("org.springframework.web..", "jakarta.servlet..", "org.springframework.http..")', 'resideInAnyPackage("com.nowhere..")'));
+      addWebImport(dir);
+    },
+  },
+  {
+    name: "jvm-lower-pit-threshold",
+    expect: "red",
+    stage: "mutation-code",
+    note: "PIT's own pass mark is set to 0 in pom.xml, with untested code added",
+    apply(dir) {
+      edit(dir, "pom.xml", (text) => text.replace("<configuration>\n          <targetClasses>", "<configuration>\n          <mutationThreshold>0</mutationThreshold>\n          <targetClasses>"));
+      addUntestedMethod(dir);
+    },
+  },
+  {
+    name: "jvm-weaken-pit-gate",
+    expect: "red",
+    stage: "mutation-code",
+    note: "the script that applies PIT's pass mark is rewritten to pass, with untested code added",
+    apply(dir) {
+      writeFileSync(join(dir, "quality", "pit-gate.js"), 'console.log("pit-gate: weakened");\nprocess.exit(0);\n');
+      addUntestedMethod(dir);
+    },
+  },
+  {
+    name: "jvm-narrow-pit-targets",
+    expect: "red",
+    stage: "mutation-code",
+    note: "PIT's target classes are narrowed to something else, with untested code added",
+    apply(dir) {
+      edit(dir, "pom.xml", (text) => text.replace("<param>example.todo.TaskList</param>", "<param>example.todo.TodoApplication</param>"));
+      addUntestedMethod(dir);
+    },
+  },
+];
+
+function prepareJvm() {
+  const dir = mkdtempSync(join(tmpdir(), "touchstone-jvm-attack-"));
+  cpSync(jvmFixture, dir, { recursive: true, filter: (source) => !/(^|\/)target(\/|$)/.test(source) });
+  writeFileSync(join(dir, ".gitignore"), "target/\n");
+  const git = (...args) => execFileSync("git", ["-c", "user.email=attacks@example.com", "-c", "user.name=Attacks", ...args], { cwd: dir, stdio: "pipe", encoding: "utf8" });
+  git("init", "-q", "-b", "main");
+  git("add", "-A");
+  git("commit", "-q", "-m", "base");
+  return [dir, git];
+}
+
+function runJvmSuite(only) {
+  let wrong = 0;
+  for (const attack of JVM_ATTACKS.filter((candidate) => !only || candidate.name === only)) {
+    const [dir, git] = prepareJvm();
+    attack.apply(dir);
+    git("add", "-A");
+    git("commit", "-q", "-m", attack.name);
+    // CONTROL=no-restore shows what each attack does when protected files are not
+    // put back. It is for checking that the protection is what stops them.
+    if (process.env.CONTROL !== "no-restore") {
+      spawnSync("node", [join(root, "ci", "restore-protected.js"), "--repo", dir, "--base", "HEAD~1"], { cwd: dir, encoding: "utf8" });
+    }
+    const failed = [];
+    for (const gateName of ["architecture", "mutation-code"]) {
+      const result = spawnSync("node", [join(root, "ci", "gates.js"), "run", gateName, "--base", "HEAD~1", "--repo", dir], { cwd: dir, encoding: "utf8" });
+      if (result.status !== 0) {
+        failed.push({ name: gateName, output: `${result.stdout}${result.stderr}` });
+      }
+    }
+    const verdict = failed.length ? "red" : "green";
+    const stageOk = !attack.stage || failed[0]?.name === attack.stage;
+    const ok = verdict === attack.expect && stageOk;
+    wrong += ok ? 0 : 1;
+    console.log(`${ok ? "ok  " : "FAIL"} ${attack.name}: expected ${attack.expect}${attack.stage ? ` at ${attack.stage}` : ""}, got ${verdict}${failed.length ? ` (stopped by ${failed.map((stage) => stage.name).join(", ")})` : ""}  - ${attack.note}`);
+    if (!ok) {
+      for (const stage of failed) {
+        console.log(`       ${stage.name}: ${stage.output.trim().split("\n").slice(-5).join("\n       ")}`);
+      }
+    }
+    rmSync(dir, { recursive: true, force: true });
+  }
+  console.log(wrong ? `\n${wrong} Java attack(s) got the wrong verdict` : "\nevery Java attack got the verdict it should");
+  return wrong ? 1 : 0;
+}
+
 function main() {
+  if (option("--suite") === "jvm") {
+    return runJvmSuite(option("--only"));
+  }
   if (process.argv.includes("--list")) {
     console.log(JSON.stringify(ATTACKS.map(({ name, expect, stage }) => ({ name, expect, stage: stage ?? "" }))));
     return 0;

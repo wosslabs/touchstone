@@ -117,6 +117,21 @@ jobs:
             echo "== $example"
             node ci/check-trace.js --repo "examples/$example"
           done
+  jvm-attacks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: examples/jvm-todo/pom.xml
+      - name: Every Java attack must turn the gates red
+        run: node attacks/run.js --suite jvm
   attacks:
     runs-on: ubuntu-latest
     steps:

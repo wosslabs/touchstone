@@ -6,7 +6,7 @@
     },
     "unit": "./mvnw -B -q test",
     "architecture": "./mvnw -B -q test -Dtest=ArchitectureTest",
-    "mutation-code": "./mvnw -B org.pitest:pitest-maven:mutationCoverage"
+    "mutation-code": "node quality/pit-gate.js --threshold 90 --require example.todo.TaskList --min-mutations 3"
   },
   "quality": [
     "unit",
@@ -48,5 +48,9 @@
         "mutation-code"
       ]
     }
-  }
+  },
+  "protect": [
+    "quality/**",
+    "src/test/java/example/todo/ArchitectureTest.java"
+  ]
 }

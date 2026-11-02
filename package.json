@@ -32,7 +32,8 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "eval": "node evals/run.js",
-    "attacks": "node attacks/run.js"
+    "attacks": "node attacks/run.js",
+    "attacks:jvm": "node attacks/run.js --suite jvm"
   },
   "engines": {
     "node": ">=22"
