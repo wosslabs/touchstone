@@ -1,8 +1,16 @@
 {
-  "name": "refine-phases",
-  "description": "Arm B. The same plain request, in a repository whose touchstone.json defines the clean, architect and harden phases and the gates for them.",
+  "name": "refine-h-baseline",
+  "description": "Tools hidden: no quality scripts in the project. Plugin 0.10.0. A plain request.",
   "fixture": "examples/refine-orders",
   "prompt": "The order feature in this repository is built, and its scenarios and tests pass. Get this change ready for review.",
+  "pluginRef": "v0.10.0",
+  "exclude": [
+    "quality"
+  ],
+  "files": {
+    "touchstone.json": "{\n  \"gates\": {\n    \"acceptance\": \"npx cucumber-js --strict\",\n    \"unit\": \"npm test\"\n  }\n}\n",
+    "package.json": "{\n  \"name\": \"touchstone-refine-orders\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"description\": \"A working feature with deliberate quality defects, used to test whether cleaning, architecture and hardening passes find and fix them.\",\n  \"scripts\": {\n    \"test\": \"node --test tests/*.test.js\",\n    \"acceptance\": \"cucumber-js --strict\"\n  },\n  \"devDependencies\": {\n    \"@cucumber/cucumber\": \"^11.3.0\"\n  }\n}\n"
+  },
   "oracles": {
     "defects": [
       {
@@ -37,7 +45,6 @@
     "protectedPaths": [
       "stories/",
       "features/orders.feature",
-      "quality/",
       "touchstone.json"
     ]
   }
