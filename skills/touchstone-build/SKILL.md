@@ -81,6 +81,8 @@ Do not say "should pass", "looks correct", or "done" without that output. A run 
 
 ## Before the pull request
 
+If `touchstone.json` in the repository defines the phases `clean`, `architect` and `harden`, follow `touchstone-refine` now: three fenced passes, each checked by `npx @wosslabs/touchstone gates phase`. Then come back here.
+
 Read the diff. These findings block the pull request:
 
 - A new skip, ignore, or disable

@@ -1,0 +1,58 @@
+{
+  "gates": {
+    "acceptance": "npx cucumber-js --strict",
+    "unit": "npm test",
+    "duplication": "npm run dup",
+    "architecture": "npm run arch",
+    "mutation-code": "npm run mutate"
+  },
+  "quality": [
+    "unit",
+    "duplication",
+    "architecture",
+    "mutation-code"
+  ],
+  "phases": {
+    "clean": {
+      "allow": [
+        "src/**",
+        "tests/**"
+      ],
+      "forbid": [
+        "quality/**"
+      ],
+      "gates": [
+        "unit",
+        "acceptance",
+        "duplication"
+      ]
+    },
+    "architect": {
+      "allow": [
+        "src/**",
+        "tests/**"
+      ],
+      "forbid": [
+        "quality/**"
+      ],
+      "gates": [
+        "unit",
+        "acceptance",
+        "architecture"
+      ]
+    },
+    "harden": {
+      "allow": [
+        "tests/**"
+      ],
+      "forbid": [
+        "quality/**"
+      ],
+      "gates": [
+        "unit",
+        "acceptance",
+        "mutation-code"
+      ]
+    }
+  }
+}
