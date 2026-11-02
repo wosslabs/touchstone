@@ -18,6 +18,8 @@
     "ci/requirements-doc.js",
     "ci/config.js",
     "ci/gates.js",
+    "ci/mutate-gherkin.js",
+    "ci/action-config.js",
     "hooks/protect-acceptance.js",
     "templates/"
   ],

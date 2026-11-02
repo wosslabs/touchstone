@@ -45,7 +45,7 @@ function blocksAt(cwd, rev) {
   return blocks;
 }
 
-function changedScenarios(cwd, base) {
+export function changedScenarios(cwd, base) {
   const before = blocksAt(cwd, base);
   const changed = [];
   for (const [title, body] of blocksAt(cwd, "HEAD")) {
@@ -56,7 +56,7 @@ function changedScenarios(cwd, base) {
   return changed;
 }
 
-function titlePattern(title) {
+export function titlePattern(title) {
   const escaped = title.replace(/<[^>]*>|[.*+?^${}()|[\]\\]/g, (match) => (match.startsWith("<") ? ".*" : `\\${match}`));
   return `^${escaped}$`;
 }
