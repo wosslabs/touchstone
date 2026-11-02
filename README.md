@@ -319,7 +319,7 @@ Touchstone is a complete workflow. If another workflow plugin is also installed,
 
 ### What the hook blocks
 
-The hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `touchstone.json`, and Touchstone's own check scripts. It also blocks obvious shell writes such as `rm`, `mv`, redirects, and `find ... -delete`.
+The hook refuses agent edits to `stories/`, `.github/workflows/`, `.claude/`, `.cursor/hooks/`, `CODEOWNERS`, `touchstone.json`, the paths listed under `protect` in it, and Touchstone's own check scripts. It also blocks obvious shell writes such as `rm`, `mv`, redirects, and `find ... -delete`.
 
 The hook is a safety net, not a lock. A determined agent can get around it, for example by building a path inside a shell variable. The real controls are CODEOWNERS and branch protection, which the agent cannot bypass.
 
@@ -671,9 +671,10 @@ One file, owned by people, names the commands that decide whether a change is go
       "setup": "npm ci --ignore-scripts"
     },
     "unit": "npm test",
-    "complexity": "npm run complexity"
+    "complexity": "node quality/complexity.js"
   },
   "quality": ["unit", "complexity"],
+  "protect": ["quality/**"],
   "mutation": { "mode": "warn", "maxMutants": 30 },
   "phases": {
     "clean": { "allow": ["src/**", "tests/**"], "gates": ["unit", "acceptance"] }
@@ -683,10 +684,31 @@ One file, owned by people, names the commands that decide whether a change is go
 
 - **`gates`** are named commands. A gate is a string, or `{ "command", "setup" }`. The Action uses `acceptance` and `red` when the workflow does not set `command` and `red-command`.
 - **`quality`** lists gates the Action runs after the acceptance command. Any of them failing fails the pull request. This is where mutation testing of the code, complexity limits, duplicate-code checks and architecture rules go. Touchstone does not ship those tools. They are specific to each language (PIT, Stryker, mutmut, ArchUnit and others), so you name the command you already use.
+- **`protect`** lists the paths that judge a change: the scripts your quality gates run, for example. A pull request must not be able to rewrite them. See [Protected files](#protected-files).
 - **`mutation`** sets the mode and the cap for [Gherkin value mutation](#gherkin-value-mutation).
 - **`phases`** are for an agent working in steps (build, clean, restructure). Each has a list of gates to pass and, optionally, `allow` and `forbid` lists of paths. The starter file lists only the `acceptance` gate for each phase, because a new project has no unit tests yet. Add `"unit"` to each phase once it has them.
 
 **The Action reads this file from the pull request's base commit, not from the pull request.** A pull request that loosens a gate takes effect only after a person has reviewed and merged it. For the first pull request that adds the file, the working tree is used. The file is protected by the hook and listed in the CODEOWNERS template.
+
+#### Protected files
+
+A quality gate is only as strong as the script it runs. If a pull request can rewrite `quality/arch-check.js` to `process.exit(0)`, the architecture gate passes whatever the code does. The unit tests are different: they are part of the change, and the harden pass and value mutation exist to judge them. The scripts that do the judging are not.
+
+List those scripts under `protect`:
+
+```json
+"protect": ["quality/**"]
+```
+
+Three things then happen:
+
+1. **The hook refuses agent edits** to those paths. Running a protected script (`node quality/dup-check.js`) is still allowed.
+2. **The Action puts the base commit's version of every protected file back** before it runs the checks. A pull request that changes, deletes or adds a file there still gets judged by the old one. The comment lists such files under "Protected files changed: a person must review these", because the change takes effect only after it is merged. The list is read from the base commit, so a pull request cannot empty it.
+3. **The phase fence forbids them** too, so an agent's hardening pass cannot weaken the tool it is measured by.
+
+`npx @wosslabs/touchstone gates codeowners --team @org/team` prints the CODEOWNERS lines for every protected path, so a person has to approve changes to them.
+
+**Call the tool directly in a gate, not through an npm script.** `"architecture": "npm run arch"` runs whatever `arch` means in the pull request's own `package.json`, and a pull request can change that file. `"architecture": "node quality/arch-check.js"` runs a path you have protected. `touchstone gates list` warns about gates that run an npm script. Do not put `package.json` itself under `protect`: a pull request that adds a dependency would then fail.
 
 #### The fence around a phase
 
@@ -759,6 +781,8 @@ Behavior was preserved in every run. What this shows, and what it does not:
 - **It does not beat a one-sentence instruction when the project has the tools.** Both reach 3.0. If your team always writes that sentence, the skill adds nothing for these three defects. This fixture cannot tell them apart.
 - **Hardening the tests is the hard part, and gates matter.** With no mutation tool, an instruction fixed the weak tests in 1 of 5 runs, and the skill's hardening pass in 4 of 5. That is suggestive, not established (p = 0.21). With the mutation tool available, both fixed them every time.
 - **Cost is small.** About 15 to 25 cents a run, and 9 to 16 turns on average instead of 7 to 8 for the plain request.
+
+The experiment ran when the fixture's gates called `npm run dup` and similar. They now call `node quality/dup-check.js` directly, to match the advice under [Protected files](#protected-files). The scripts themselves did not change.
 
 Read these limits before trusting them. It is one small project with defects chosen by the author, judged by oracles the author wrote. It is one model and five runs per arm. The oracles measure whether defects are gone, not whether the result reads well to a person. The first round of this experiment was wrong: the skill fired in the baseline arm too, so it measured nothing, and one run stopped because the skill had no instructions for a project without phases. That is fixed, and the baseline now uses the plugin from before the skill existed. A usage limit also cut one arm short, and the harness now reports that as "not run" instead of as a failure. A real code base will have defects this fixture does not.
 
@@ -845,7 +869,7 @@ Touchstone is an early beta. The current release is 0.10.1. Here is what has bee
 - Reading an existing code base. An agent session wrote 29 scenarios for `examples/legacy-orders`, and all pass against the unmodified service. Five evaluation runs of that task passed.
 - The real Action on three real pull requests, with comments on (`.github/workflows/action-pr-e2e.yml`). Open a pull request from a branch named `e2e/<attack>` and the workflow builds that attack and runs the Action on it. [#1](https://github.com/wosslabs/touchstone/pull/1) is the honest change: the Action commented "all checks passed" with the trace. [#2](https://github.com/wosslabs/touchstone/pull/2) is a `Then` step that stops asserting: it commented "failed at mutate" with the survivors and listed the changed step file for review. [#3](https://github.com/wosslabs/touchstone/pull/3) is a reworded sentence: it commented "failed at guard" with the reworded line. The pull requests were closed without merging. The comment layout (verdict first, a passing trace collapsed) was changed afterwards and checked on two more, [#4](https://github.com/wosslabs/touchstone/pull/4) and [#5](https://github.com/wosslabs/touchstone/pull/5). Before this, the Action posted no comment at all on a failing pull request. That was a bug, found and fixed while writing the test.
 - The real Action, run on GitHub on each attack (`.github/workflows/action-e2e.yml`). For every attack the workflow builds a scratch repository (a base commit, then the bad change) and runs the Action itself on it with `uses:`. It then checks that the Action turned red or green as expected, and for the key attacks that the right stage stopped it, using the Action's `failed_stage` output. The honest change passed with no failing stage. A `Then` step that stops asserting was stopped by the mutation stage, including when the same change turned mutation off, because the settings come from the base commit.
-- An attack suite (`npm run attacks`, also a CI job). It applies twelve deliberately bad changes, such as a reworded story, an empty step, `test.only`, a build file that ignores test failures, a scenario that is already green, a stack trace in a `When` step, a `Then` step that stops asserting anything, and the same with mutation switched off in the same pull request. Each must turn the pipeline red. One honest change must stay green. The suite found a real hole when it was written: the guard exempted any `tests/` folder, including an application's own. That is fixed.
+- An attack suite (`npm run attacks`, also a CI job). It applies thirteen deliberately bad changes, such as a reworded story, an empty step, `test.only`, a build file that ignores test failures, a scenario that is already green, a stack trace in a `When` step, a `Then` step that stops asserting anything, the same with mutation switched off in the same pull request, and a quality gate's script rewritten to always pass in the change that adds what it catches. Each must turn the pipeline red. One honest change must stay green. The suite found a real hole when it was written: the guard exempted any `tests/` folder, including an application's own. That is fixed.
 - The red check against real runner output for the Node web, TypeScript, Java, Python, Go and Rust examples. That includes a Java pull request whose new unit test refers to code that does not exist at the base commit.
 
 **Built, and run on GitHub through the Action:** Gherkin value mutation and reading `touchstone.json` from the base commit. The quality gates and the phase fence are checked in unit tests only. The mutator was also run for real on the TypeScript example and on `examples/legacy-orders`.
@@ -854,7 +878,7 @@ Touchstone is an early beta. The current release is 0.10.1. Here is what has bee
 
 **Not verified yet:**
 
-- The Action has run on three real pull requests ([#1](https://github.com/wosslabs/touchstone/pull/1), [#2](https://github.com/wosslabs/touchstone/pull/2), [#3](https://github.com/wosslabs/touchstone/pull/3)), but each was built from a scratch repository made by the attack suite, not from a real application. `red-batch`, the quality gates, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run twice, for 0.9.0 and 0.9.1.
+- The Action has run on three real pull requests ([#1](https://github.com/wosslabs/touchstone/pull/1), [#2](https://github.com/wosslabs/touchstone/pull/2), [#3](https://github.com/wosslabs/touchstone/pull/3)), but each was built from a scratch repository made by the attack suite, not from a real application. `red-batch`, the quality gates, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run for 0.9.0, 0.9.1, 0.10.0 and 0.10.1.
 - The Mojo red command.
 - The evals ran against one model, on small fixtures. See [Results](#results).
 - Nobody outside this project has used it on a real repository.
@@ -862,7 +886,7 @@ Touchstone is an early beta. The current release is 0.10.1. Here is what has bee
 **Known limits:**
 
 - Step definitions are found by pattern matching. Steps built from constants or string concatenation, or registered through unusual helpers, will not be found.
-- A step definition can still be weakened in ways the checks cannot see, for example by changing an assertion so it can never fail. Code review of step files is the defence.
+- A step definition can still be weakened in ways the checks cannot see. Value mutation catches the common case, a `Then` that stops asserting: every value in its scenarios survives. It does not catch a step that checks the wrong thing but still depends on its value, or a quality script you forgot to list under `protect`. Review of step files is the remaining defence.
 - Acceptance sentences prove that the system does what you specified. They do not prove you specified the right things, and they say nothing about security, performance, or architecture. Release controls, rollback, migration checks, architecture tests and mutation testing belong in your own pipeline, on paths the agent does not own.
 
 The attack suite runs offline. A good next step would be a public repository holding the same attacks as real pull requests, with a link to each run, so anyone can check them.

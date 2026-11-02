@@ -17,6 +17,7 @@ const config = {
     lint: "npm run lint",
   },
   quality: ["unit", "lint"],
+  protect: ["quality/**", "scripts/ci/**"],
   mutation: { mode: "fail", maxMutants: 12 },
 };
 
@@ -32,6 +33,7 @@ test("the config becomes the Action's outputs", () => {
     mutate_mode: "fail",
     mutate_max: "12",
     quality: "unit\nlint",
+    protect: "quality/**\nscripts/ci/**",
   });
   assert.equal(outputsFor({}).command, "");
 });

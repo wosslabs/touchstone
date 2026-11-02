@@ -87,3 +87,67 @@ test("denies find -delete and find -exec on stories", () => {
   }
   assert.equal(decide({ command: "find stories -name '*.md'" }).permission, "allow");
 });
+
+// The paths a person lists under "protect" in touchstone.json are protected too.
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+function decideIn(project, payload) {
+  const result = spawnSync("node", [script], { input: JSON.stringify({ ...payload, cwd: project }), encoding: "utf8", cwd: project });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout).permission;
+}
+
+function withProject(protect, run) {
+  const project = mkdtempSync(join(tmpdir(), "touchstone-hook-"));
+  try {
+    writeFileSync(join(project, "touchstone.json"), JSON.stringify({ gates: {}, protect }));
+    run(project);
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+}
+
+test("denies a write to a path under protect, absolute or relative", () => {
+  withProject(["quality/**", "scripts/ci/*.sh"], (project) => {
+    for (const file_path of [join(project, "quality", "arch-check.js"), "quality/dup-check.js", "./quality/sub/x.js", join(project, "scripts", "ci", "gate.sh")]) {
+      assert.equal(decideIn(project, { tool_name: "Write", tool_input: { file_path } }), "deny", file_path);
+    }
+  });
+});
+
+test("allows a write elsewhere, and writes outside the project", () => {
+  withProject(["quality/**"], (project) => {
+    for (const file_path of [join(project, "src", "app.js"), "tests/app.test.js", "../outside/quality/x.js", "scripts/ci/deep/gate.sh"]) {
+      assert.equal(decideIn(project, { tool_name: "Write", tool_input: { file_path } }), "allow", file_path);
+    }
+  });
+});
+
+test("denies a shell write to a protected path but allows running it and reading it", () => {
+  withProject(["quality/**"], (project) => {
+    for (const command of ["echo 'process.exit(0)' > quality/arch-check.js", "sed -i '' 's/1/0/' quality/dup-check.js", "rm quality/dup-check.js", "python3 -c \"open('quality/x.js','w').write('')\"", "node quality/dup-check.js > quality/out.txt"]) {
+      assert.equal(decideIn(project, { tool_name: "Bash", tool_input: { command } }), "deny", command);
+    }
+    for (const command of ["node quality/dup-check.js", "node quality/mutate-code.js --allow 0", "cat quality/arch-check.js", "npm run dup", "ls quality"]) {
+      assert.equal(decideIn(project, { tool_name: "Bash", tool_input: { command } }), "allow", command);
+    }
+  });
+});
+
+test("without a protect list nothing extra is protected", () => {
+  withProject([], (project) => {
+    assert.equal(decideIn(project, { tool_name: "Write", tool_input: { file_path: "quality/x.js" } }), "allow");
+  });
+});
+
+test("a broken touchstone.json does not break the hook or disable the built-in protection", () => {
+  const project = mkdtempSync(join(tmpdir(), "touchstone-hook-"));
+  try {
+    writeFileSync(join(project, "touchstone.json"), "{ not json");
+    assert.equal(decideIn(project, { tool_name: "Write", tool_input: { file_path: "stories/pay.md" } }), "deny");
+    assert.equal(decideIn(project, { tool_name: "Write", tool_input: { file_path: "src/a.js" } }), "allow");
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+});

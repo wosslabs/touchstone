@@ -3,6 +3,7 @@
 // agent's inner loop stayed inside its fence.
 //
 //   node ci/gates.js list
+//   node ci/gates.js codeowners [--team @org/team]   # CODEOWNERS lines for every protected path
 //   node ci/gates.js run <gate> [--base ref] [--repo path]
 //   node ci/gates.js phase <phase> [--base ref] [--repo path]
 //
@@ -12,7 +13,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { ALWAYS_FORBIDDEN, gate, loadConfig, matchesAny } from "./config.js";
+import { ALWAYS_FORBIDDEN, gate, lint, loadConfig, matchesAny, protectGlobs } from "./config.js";
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -35,8 +36,8 @@ export function changedFiles(repo, base) {
 }
 
 // Returns the files a phase may not have changed, each with the reason.
-export function fenceViolations(files, phase = {}) {
-  const forbidden = [...ALWAYS_FORBIDDEN, ...(phase.forbid ?? [])];
+export function fenceViolations(files, phase = {}, protect = []) {
+  const forbidden = [...ALWAYS_FORBIDDEN, ...protect, ...(phase.forbid ?? [])];
   const violations = [];
   for (const file of files) {
     if (matchesAny(file, forbidden)) {
@@ -72,6 +73,18 @@ function main() {
       for (const [gateName, value] of Object.entries(config.gates ?? {})) {
         console.log(`${gateName}: ${typeof value === "string" ? value : value.command}`);
       }
+      for (const warning of lint(config)) {
+        console.log(`warning: ${warning}`);
+      }
+      return 0;
+    }
+    if (action === "codeowners") {
+      config = load(repo, "");
+      const team = option("--team") || "@YOUR_GITHUB_ORG/YOUR_TEAM";
+      for (const glob of ["stories/**", ".github/workflows/**", "touchstone.json", "CODEOWNERS", ...protectGlobs(config)]) {
+        const entry = glob.endsWith("/**") ? `/${glob.slice(0, -2)}` : `/${glob}`;
+        console.log(`${entry} ${team}`);
+      }
       return 0;
     }
     if (action === "run") {
@@ -91,7 +104,7 @@ function main() {
         console.error(`gates: no phase named "${name ?? ""}"`);
         return 1;
       }
-      const violations = fenceViolations(changedFiles(repo, base), phase);
+      const violations = fenceViolations(changedFiles(repo, base), phase, protectGlobs(config));
       if (violations.length) {
         console.log(`phase ${name} left its fence:`);
         for (const [file, reason] of violations) {
@@ -114,7 +127,7 @@ function main() {
     console.error(`gates: ${error.message}`);
     return 1;
   }
-  console.error("usage: gates list | gates run <gate> | gates phase <phase> [--base ref]");
+  console.error("usage: gates list | gates run <gate> | gates phase <phase> [--base ref] | gates codeowners [--team @org/team]");
   return 1;
 }
 

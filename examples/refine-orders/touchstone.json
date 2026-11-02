@@ -2,9 +2,9 @@
   "gates": {
     "acceptance": "npx cucumber-js --strict",
     "unit": "npm test",
-    "duplication": "npm run dup",
-    "architecture": "npm run arch",
-    "mutation-code": "npm run mutate"
+    "duplication": "node quality/dup-check.js",
+    "architecture": "node quality/arch-check.js",
+    "mutation-code": "node quality/mutate-code.js"
   },
   "quality": [
     "unit",
@@ -54,5 +54,8 @@
         "mutation-code"
       ]
     }
-  }
+  },
+  "protect": [
+    "quality/**"
+  ]
 }

@@ -9,7 +9,7 @@
 //
 // examples/typescript-todo needs `npm ci --ignore-scripts` first.
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,18 @@ const modules = join(fixture, "node_modules");
 
 const ACCEPTANCE = "npx cucumber-js --strict";
 const RED = 'npx cucumber-js --strict --name "$TOUCHSTONE_SCENARIO" --format message:"$TOUCHSTONE_MESSAGES"';
+
+const QUALITY_SCRIPT = `import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+let found = 0;
+for (const name of readdirSync("src")) {
+  if (readFileSync(join("src", name), "utf8").includes("FIXME")) {
+    console.log(\`quality: FIXME left in src/\${name}\`);
+    found += 1;
+  }
+}
+process.exit(found === 0 ? 0 : 1);
+`;
 
 const NEW_SCENARIO = (title, ...lines) => `\n  Scenario: ${title}\n${lines.map((line) => `    ${line}`).join("\n")}\n`;
 
@@ -98,6 +110,16 @@ const ATTACKS = [
     },
   },
   {
+    name: "weakened-quality-script",
+    expect: "red",
+    stage: "quality",
+    note: "a quality gate's script is rewritten to always pass, in the same change that adds what it catches",
+    apply(dir) {
+      edit(dir, "src/tasks.ts", (text) => `// FIXME: validate the title properly\n${text}`);
+      writeFileSync(join(dir, "quality", "check.js"), "process.exit(0);\n");
+    },
+  },
+  {
     name: "focused-test",
     expect: "red",
     stage: "guard",
@@ -161,12 +183,14 @@ function sh(dir, command, env = {}) {
 }
 
 function pipeline(dir) {
+  spawnSync("node", [join(root, "ci", "restore-protected.js"), "--repo", dir, "--base", "HEAD~1"], { cwd: dir, encoding: "utf8" });
   const node = (script, args) => spawnSync("node", [join(root, "ci", script), ...args], { cwd: dir, encoding: "utf8" });
   const stages = [
     ["guard", () => node("check-acceptance-guard.js", ["--base", "HEAD~1"])],
     ["trace", () => node("check-trace.js", [])],
     ["red", () => node("check-red-green.js", ["--base", "HEAD~1", "--command", RED, "--setup", `ln -s ${modules} node_modules`])],
     ["mutation", () => node("mutate-gherkin.js", ["--base", "HEAD~1", "--command", RED])],
+    ["quality", () => node("gates.js", ["run", "quality-check", "--base", "HEAD~1"])],
     ["acceptance", () => sh(dir, ACCEPTANCE)],
   ];
   const failed = [];
@@ -184,8 +208,18 @@ function pipeline(dir) {
 function seed(dir, ignore = []) {
   cpSync(fixture, dir, { recursive: true, filter: (source) => !source.includes("node_modules") });
   writeFileSync(join(dir, ".gitignore"), `${["node_modules", ...ignore].join("\n")}\n`);
+  // A quality gate whose script is protected: it fails if any source file still
+  // carries a FIXME. Called directly, not through an npm script.
+  mkdirSync(join(dir, "quality"), { recursive: true });
+  writeFileSync(join(dir, "quality", "check.js"), QUALITY_SCRIPT);
   const config = {
-    gates: { acceptance: ACCEPTANCE, red: { command: RED, setup: "npm ci --ignore-scripts" } },
+    gates: {
+      acceptance: ACCEPTANCE,
+      red: { command: RED, setup: "npm ci --ignore-scripts" },
+      "quality-check": "node quality/check.js",
+    },
+    quality: ["quality-check"],
+    protect: ["quality/**"],
     mutation: { mode: "fail" },
   };
   writeFileSync(join(dir, "touchstone.json"), `${JSON.stringify(config, null, 2)}\n`);

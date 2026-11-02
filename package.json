@@ -20,6 +20,7 @@
     "ci/gates.js",
     "ci/mutate-gherkin.js",
     "ci/action-config.js",
+    "ci/restore-protected.js",
     "hooks/protect-acceptance.js",
     "templates/"
   ],
