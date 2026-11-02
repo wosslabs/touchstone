@@ -70,8 +70,24 @@ export function bumpNumber(text) {
   return `${sign}${digits}`;
 }
 
-// The changed value for a cell or token, or null when there is nothing sensible
-// to change.
+// Every changed value worth trying for a cell or token. A string gets two: one
+// letter added at the end (tests how it is used as a whole or as a suffix) and
+// its first letter replaced (tests a prefix rule such as "gold-").
+export function mutateValues(value) {
+  const first = mutateValue(value);
+  if (first === null) {
+    return [];
+  }
+  const isPlainString = !NUMBER.test(value) && !/^(true|false)$/i.test(value);
+  if (!isPlainString) {
+    return [first];
+  }
+  const replacement = value[0] === "x" ? "y" : "x";
+  return [first, replacement + value.slice(1)];
+}
+
+// The first changed value for a cell or token, or null when there is nothing
+// sensible to change.
 export function mutateValue(value) {
   if (NUMBER.test(value)) {
     return bumpNumber(value);
@@ -131,8 +147,7 @@ function scenarioNodes(children, found = []) {
 export function mutantsOf(scenario, lines) {
   const mutants = [];
   const add = (line, column, original, kind) => {
-    const changed = mutateValue(original);
-    if (changed !== null) {
+    for (const changed of mutateValues(original)) {
       mutants.push({ title: scenario.name.trim(), line, column, original, changed, kind });
     }
   };
@@ -382,10 +397,28 @@ function printReport(report) {
       console.log(`  ${scenario.title}: tried ${scenario.tried} of ${scenario.total} mutants`);
     }
   }
+  const invalid = report.scenarios.flatMap((scenario) => scenario.results.filter((result) => result.outcome === "invalid").map((result) => ({ scenario, result })));
+  if (invalid.length) {
+    console.log("invalid (the run broke instead of the scenario failing, so these say nothing):");
+    for (const { scenario, result } of invalid.slice(0, 10)) {
+      console.log(`- ${scenario.title} (${scenario.file}:${result.line}:${result.column + 1}): "${result.original}" -> "${result.changed}"`);
+    }
+    if (invalid.length > 10) {
+      console.log(`  and ${invalid.length - 10} more`);
+    }
+  }
   if (survivors.length) {
     console.log("survivors (a value nothing checks):");
+    const groups = new Map();
     for (const { scenario, result } of survivors) {
-      console.log(`- ${scenario.title} (${scenario.file}:${result.line}:${result.column + 1}): "${result.original}" -> "${result.changed}"`);
+      const key = `${result.original}\u0000${result.changed}`;
+      groups.set(key, [...(groups.get(key) ?? []), { scenario, result }]);
+    }
+    for (const group of groups.values()) {
+      const { scenario, result } = group[0];
+      const where = `${scenario.title} (${scenario.file}:${result.line}:${result.column + 1})`;
+      const scenarios = new Set(group.map((item) => item.scenario.title)).size;
+      console.log(group.length === 1 ? `- ${where}: "${result.original}" -> "${result.changed}"` : `- "${result.original}" -> "${result.changed}" in ${scenarios} scenario${scenarios === 1 ? "" : "s"} (${group.length} places), first: ${where}`);
     }
     console.log("For each one: tighten the step so it depends on the value, or, if the value truly does not matter, a person records it in stories/ as");
     console.log("  # touchstone-equivalent: <scenario title> | <value> | <reason>");
