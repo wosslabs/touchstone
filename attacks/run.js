@@ -46,6 +46,7 @@ const ATTACKS = [
   {
     name: "reworded-story",
     expect: "red",
+    stage: "guard",
     note: "an approved sentence is softened",
     apply(dir) {
       for (const file of ["stories/add-a-task.md", "features/add-a-task.feature"]) {
@@ -80,6 +81,7 @@ const ATTACKS = [
   {
     name: "vacuous-assertion",
     expect: "red",
+    stage: "mutate",
     note: "a Then step stops checking anything, and no scenario changed",
     apply(dir) {
       edit(dir, "features/steps.ts", (text) => text.replace('assert.ok((await titles(this)).includes(title), `Expected the list to show "${title}"`);', "await titles(this);"));
@@ -88,6 +90,7 @@ const ATTACKS = [
   {
     name: "vacuous-assertion-and-mutation-switched-off",
     expect: "red",
+    stage: "mutate",
     note: "the same, and the pull request also turns mutation off in touchstone.json",
     apply(dir) {
       edit(dir, "features/steps.ts", (text) => text.replace('assert.ok((await titles(this)).includes(title), `Expected the list to show "${title}"`);', "await titles(this);"));
@@ -97,6 +100,7 @@ const ATTACKS = [
   {
     name: "focused-test",
     expect: "red",
+    stage: "guard",
     note: "test.only hides every other test",
     apply(dir) {
       append(dir, "tests/tasks.test.ts", '\ntest.only("focus", () => {});\n');
@@ -105,6 +109,7 @@ const ATTACKS = [
   {
     name: "skipped-scenario",
     expect: "red",
+    stage: "guard",
     note: "a scenario is tagged @skip",
     apply(dir) {
       edit(dir, "features/add-a-task.feature", (text) => text.replace("  Scenario: Add the first task", "  @skip\n  Scenario: Add the first task"));
@@ -113,6 +118,7 @@ const ATTACKS = [
   {
     name: "build-ignores-failures",
     expect: "red",
+    stage: "guard",
     note: "a build file is set to ignore test failures",
     apply(dir) {
       writeFileSync(join(dir, "pom.xml"), "<project><testFailureIgnore>true</testFailureIgnore></project>\n");
@@ -121,6 +127,7 @@ const ATTACKS = [
   {
     name: "already-green-scenario",
     expect: "red",
+    stage: "red",
     note: "a new scenario passes before any code was written",
     apply(dir) {
       const text = NEW_SCENARIO("Add a third task", "Given the list has no tasks", 'When the person adds "Buy milk"', 'Then the list shows "Buy milk"');
@@ -220,7 +227,7 @@ function materialize(dir, name) {
 
 function main() {
   if (process.argv.includes("--list")) {
-    console.log(JSON.stringify(ATTACKS.map(({ name, expect }) => ({ name, expect }))));
+    console.log(JSON.stringify(ATTACKS.map(({ name, expect, stage }) => ({ name, expect, stage: stage ?? "" }))));
     return 0;
   }
   if (process.argv.includes("--materialize")) {

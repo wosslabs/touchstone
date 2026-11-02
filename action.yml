@@ -45,6 +45,10 @@ inputs:
     description: Post or update the trace comment on the pull request.
     required: false
     default: "true"
+outputs:
+  failed_stage:
+    description: The first stage that failed (guard, red, acceptance, quality, mutate, holdout or trace), or empty when everything passed.
+    value: ${{ steps.report.outputs.failed }}
 runs:
   using: composite
   steps:
@@ -65,6 +69,7 @@ runs:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
       run: node "${{ github.action_path }}/ci/action-config.js" --repo . --base "$BASE"
     - name: Approved sentences did not shrink
+      id: guard
       shell: bash
       env:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
@@ -82,6 +87,7 @@ runs:
         node "${{ github.action_path }}/ci/check-trace.js" | tee "$RUNNER_TEMP/touchstone-trace.txt"
         echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
     - name: New scenarios fail before the code exists
+      id: red
       if: (inputs.red-command != '' || steps.config.outputs.red_command != '') && (inputs.base != '' || github.event.pull_request.base.sha != '')
       shell: bash
       env:
@@ -101,12 +107,14 @@ runs:
         fi
         node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND" --overlay "$OVERLAY" "${flags[@]}"
     - name: Acceptance tests pass
+      id: acceptance
       if: inputs.command != '' || steps.config.outputs.command != ''
       shell: bash
       env:
         ACCEPTANCE_COMMAND: ${{ inputs.command || steps.config.outputs.command }}
       run: bash -c "$ACCEPTANCE_COMMAND"
     - name: Quality gates pass
+      id: quality
       if: steps.config.outputs.quality != ''
       shell: bash
       env:
@@ -118,6 +126,7 @@ runs:
           node "${{ github.action_path }}/ci/gates.js" run "$name" --base "$BASE" --repo .
         done <<< "$GATES"
     - name: Every value in a scenario is checked
+      id: mutate
       if: (inputs.mutate != '' && inputs.mutate != 'off') || (inputs.mutate == '' && steps.config.outputs.mutate_mode != '' && steps.config.outputs.mutate_mode != 'off')
       shell: bash
       env:
@@ -133,6 +142,7 @@ runs:
         fi
         node "${{ github.action_path }}/ci/mutate-gherkin.js" --repo . --base "$BASE" --command "$MUTATE_COMMAND" --mode "$MODE" --overlay "$OVERLAY" "${flags[@]}"
     - name: Held-back scenarios pass
+      id: holdout
       if: inputs.holdout-command != ''
       shell: bash
       env:
@@ -204,3 +214,26 @@ runs:
         if [ "${{ steps.trace.outputs.code }}" != "0" ]; then
           exit 1
         fi
+    - name: Report which stage failed
+      id: report
+      if: always()
+      shell: bash
+      env:
+        GUARD: ${{ steps.guard.outcome }}
+        RED: ${{ steps.red.outcome }}
+        ACCEPTANCE: ${{ steps.acceptance.outcome }}
+        QUALITY: ${{ steps.quality.outcome }}
+        MUTATE: ${{ steps.mutate.outcome }}
+        HOLDOUT: ${{ steps.holdout.outcome }}
+        TRACE: ${{ steps.trace.outputs.code }}
+      run: |
+        failed=""
+        [ "$GUARD" = "failure" ] && failed="guard"
+        [ -z "$failed" ] && [ "$RED" = "failure" ] && failed="red"
+        [ -z "$failed" ] && [ "$ACCEPTANCE" = "failure" ] && failed="acceptance"
+        [ -z "$failed" ] && [ "$QUALITY" = "failure" ] && failed="quality"
+        [ -z "$failed" ] && [ "$MUTATE" = "failure" ] && failed="mutate"
+        [ -z "$failed" ] && [ "$HOLDOUT" = "failure" ] && failed="holdout"
+        [ -z "$failed" ] && [ -n "$TRACE" ] && [ "$TRACE" != "0" ] && failed="trace"
+        echo "failed=$failed" >> "$GITHUB_OUTPUT"
+        exit 0
