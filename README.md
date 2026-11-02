@@ -570,6 +570,8 @@ Each scenario normally gets its own run at the base commit and another with the 
 | `holdout-command` | Runs held-back scenarios (see [below](#held-back-scenarios)). |
 | `comment` | Set to `"false"` to skip the pull request comment. |
 
+The Action has one output, `failed_stage`: the first stage that failed (`guard`, `red`, `acceptance`, `quality`, `mutate`, `holdout` or `trace`), or empty when everything passed.
+
 Any command left empty is taken from `touchstone.json` at the pull request's base commit, if the file exists. An input set in the workflow wins over the file. Write the commands in the workflow file or in `touchstone.json` rather than as npm scripts. The workflow file is protected by CODEOWNERS and the hook, but `package.json` is something a pull request can change.
 
 ### Gherkin value mutation
@@ -759,16 +761,17 @@ Touchstone is an early beta. The current release is 0.9.1. Here is what has been
 
 - All unit tests (`npm test`) and the CI jobs on GitHub for every example. All of them passed on the last run.
 - Reading an existing code base. An agent session wrote 29 scenarios for `examples/legacy-orders`, and all pass against the unmodified service. Five evaluation runs of that task passed.
+- The real Action, run on GitHub on each attack (`.github/workflows/action-e2e.yml`). For every attack the workflow builds a scratch repository (a base commit, then the bad change) and runs the Action itself on it with `uses:`. It then checks that the Action turned red or green as expected, and for the key attacks that the right stage stopped it, using the Action's `failed_stage` output. The honest change passed with no failing stage. A `Then` step that stops asserting was stopped by the mutation stage, including when the same change turned mutation off, because the settings come from the base commit.
 - An attack suite (`npm run attacks`, also a CI job). It applies twelve deliberately bad changes, such as a reworded story, an empty step, `test.only`, a build file that ignores test failures, a scenario that is already green, a stack trace in a `When` step, a `Then` step that stops asserting anything, and the same with mutation switched off in the same pull request. Each must turn the pipeline red. One honest change must stay green. The suite found a real hole when it was written: the guard exempted any `tests/` folder, including an application's own. That is fixed.
 - The red check against real runner output for the Node web, TypeScript, Java, Python, Go and Rust examples. That includes a Java pull request whose new unit test refers to code that does not exist at the base commit.
 
-**Built, but only checked in unit tests and the attack suite:** Gherkin value mutation, `touchstone.json`, the phase fence and the quality gates. The mutator was run for real on the TypeScript example and on `examples/legacy-orders`. The Action steps that call them have never run on GitHub.
+**Built, and run on GitHub through the Action:** Gherkin value mutation and reading `touchstone.json` from the base commit. The quality gates and the phase fence are checked in unit tests only. The mutator was also run for real on the TypeScript example and on `examples/legacy-orders`.
 
 **Not built yet:** the agent's inner loop as a set of phases (build, clean, restructure, harden, verify). The config and the fence that such phases need exist. The skills that walk an agent through the phases do not, and nothing yet shows that extra review phases improve results. That needs an evaluation with seeded defects before it is worth claiming.
 
 **Not verified yet:**
 
-- The `wosslabs/touchstone` action itself has not run on a real pull request. The repository's own CI uses it only for the trace. The pull request comment, the red check inside the action, `red-batch`, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run twice, for 0.9.0 and 0.9.1.
+- The pull request comment has not been seen on a real pull request. The Action itself has run on GitHub, but on scratch repositories built from the attack suite (see below), not on a pull request, so the comment step was switched off. `red-batch`, the quality gates, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run twice, for 0.9.0 and 0.9.1.
 - The Mojo red command.
 - The evals ran against one model, on small fixtures. See [Results](#results).
 - Nobody outside this project has used it on a real repository.
