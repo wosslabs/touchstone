@@ -1,0 +1,2 @@
+Pull request test for "honest-change": checks the collapsed comment layout.
+Never merged.
