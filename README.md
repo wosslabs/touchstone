@@ -861,7 +861,7 @@ Read these with care:
 
 ## Project status
 
-Touchstone is an early beta. The current release is 0.10.1. Here is what has been checked and what has not.
+Touchstone is an early beta. The current release is 0.11.0. Here is what has been checked and what has not.
 
 **Verified by running it:**
 
@@ -878,7 +878,7 @@ Touchstone is an early beta. The current release is 0.10.1. Here is what has bee
 
 **Not verified yet:**
 
-- The Action has run on three real pull requests ([#1](https://github.com/wosslabs/touchstone/pull/1), [#2](https://github.com/wosslabs/touchstone/pull/2), [#3](https://github.com/wosslabs/touchstone/pull/3)), but each was built from a scratch repository made by the attack suite, not from a real application. `red-batch`, the quality gates, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run for 0.9.0, 0.9.1, 0.10.0 and 0.10.1.
+- The Action has run on three real pull requests ([#1](https://github.com/wosslabs/touchstone/pull/1), [#2](https://github.com/wosslabs/touchstone/pull/2), [#3](https://github.com/wosslabs/touchstone/pull/3)), but each was built from a scratch repository made by the attack suite, not from a real application. `red-batch`, the quality gates, the JVM workflow template and the held-back scenarios template have never run on GitHub. The release workflow has run for 0.9.0, 0.9.1, 0.10.0, 0.10.1 and 0.11.0.
 - The Mojo red command.
 - The evals ran against one model, on small fixtures. See [Results](#results).
 - Nobody outside this project has used it on a real repository.
@@ -893,9 +893,9 @@ The attack suite runs offline. A good next step would be a public repository hol
 
 ## Releases
 
-The current release is 0.10.1, published to npm as `@wosslabs/touchstone`.
+The current release is 0.11.0, published to npm as `@wosslabs/touchstone`.
 
-Pushing a tag such as `v0.10.2` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit. It does not publish to npm. Publishing is a separate step done by a person, because it needs two-factor authentication and cannot be undone:
+Pushing a tag such as `v0.11.1` runs `.github/workflows/release.yml`. It runs the tests, checks that the tag and every plugin manifest match `package.json`, checks that the workflow templates use the major tag it is about to move, and then moves that major tag (`v0`) to the same commit. It does not publish to npm. Publishing is a separate step done by a person, because it needs two-factor authentication and cannot be undone:
 
 ```bash
 npm publish --access public
