@@ -74,13 +74,16 @@ runs:
       env:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
       run: |
-        if [ -n "$BASE" ]; then
-          node "${{ github.action_path }}/ci/check-acceptance-guard.js" --base "$BASE"
-        else
-          node "${{ github.action_path }}/ci/check-acceptance-guard.js"
-        fi
+        {
+          if [ -n "$BASE" ]; then
+            node "${{ github.action_path }}/ci/check-acceptance-guard.js" --base "$BASE"
+          else
+            node "${{ github.action_path }}/ci/check-acceptance-guard.js"
+          fi
+        } 2>&1 | tee "$RUNNER_TEMP/touchstone-guard.txt"
     - name: Sentences match Cucumber
       id: trace
+      if: always()
       shell: bash
       run: |
         set +e
@@ -105,14 +108,14 @@ runs:
         if [ "$BATCH" = "true" ]; then
           flags+=(--batch)
         fi
-        node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND" --overlay "$OVERLAY" "${flags[@]}"
+        node "${{ github.action_path }}/ci/check-red-green.js" --base "$BASE" --command "$RED_COMMAND" --setup "$SETUP_COMMAND" --overlay "$OVERLAY" "${flags[@]}" 2>&1 | tee "$RUNNER_TEMP/touchstone-red.txt"
     - name: Acceptance tests pass
       id: acceptance
       if: inputs.command != '' || steps.config.outputs.command != ''
       shell: bash
       env:
         ACCEPTANCE_COMMAND: ${{ inputs.command || steps.config.outputs.command }}
-      run: bash -c "$ACCEPTANCE_COMMAND"
+      run: bash -c "$ACCEPTANCE_COMMAND" 2>&1 | tee "$RUNNER_TEMP/touchstone-acceptance.txt"
     - name: Quality gates pass
       id: quality
       if: steps.config.outputs.quality != ''
@@ -121,10 +124,12 @@ runs:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
         GATES: ${{ steps.config.outputs.quality }}
       run: |
-        while IFS= read -r name; do
-          [ -n "$name" ] || continue
-          node "${{ github.action_path }}/ci/gates.js" run "$name" --base "$BASE" --repo .
-        done <<< "$GATES"
+        {
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            node "${{ github.action_path }}/ci/gates.js" run "$name" --base "$BASE" --repo . || exit 1
+          done <<< "$GATES"
+        } 2>&1 | tee "$RUNNER_TEMP/touchstone-quality.txt"
     - name: Every value in a scenario is checked
       id: mutate
       if: (inputs.mutate != '' && inputs.mutate != 'off') || (inputs.mutate == '' && steps.config.outputs.mutate_mode != '' && steps.config.outputs.mutate_mode != 'off')
@@ -140,15 +145,16 @@ runs:
         if [ -n "$MAX_MUTANTS" ]; then
           flags+=(--max-mutants "$MAX_MUTANTS")
         fi
-        node "${{ github.action_path }}/ci/mutate-gherkin.js" --repo . --base "$BASE" --command "$MUTATE_COMMAND" --mode "$MODE" --overlay "$OVERLAY" "${flags[@]}"
+        node "${{ github.action_path }}/ci/mutate-gherkin.js" --repo . --base "$BASE" --command "$MUTATE_COMMAND" --mode "$MODE" --overlay "$OVERLAY" "${flags[@]}" 2>&1 | tee "$RUNNER_TEMP/touchstone-mutate.txt"
     - name: Held-back scenarios pass
       id: holdout
       if: inputs.holdout-command != ''
       shell: bash
       env:
         HOLDOUT_COMMAND: ${{ inputs.holdout-command }}
-      run: bash -c "$HOLDOUT_COMMAND"
+      run: bash -c "$HOLDOUT_COMMAND" 2>&1 | tee "$RUNNER_TEMP/touchstone-holdout.txt"
     - name: List driver changes
+      if: always()
       shell: bash
       env:
         BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
@@ -157,17 +163,64 @@ runs:
         if [ -n "$BASE" ]; then
           git diff --name-only "$BASE" HEAD -- features src/acceptanceTest package.json package-lock.json cucumber.js touchstone.json pom.xml build.gradle build.gradle.kts mvnw .mvn | grep -v '\.feature$' > "$RUNNER_TEMP/touchstone-drivers.txt" || true
         fi
+    - name: Report which stage failed
+      id: report
+      if: always()
+      shell: bash
+      env:
+        GUARD: ${{ steps.guard.outcome }}
+        RED: ${{ steps.red.outcome }}
+        ACCEPTANCE: ${{ steps.acceptance.outcome }}
+        QUALITY: ${{ steps.quality.outcome }}
+        MUTATE: ${{ steps.mutate.outcome }}
+        HOLDOUT: ${{ steps.holdout.outcome }}
+        TRACE: ${{ steps.trace.outputs.code }}
+      run: |
+        failed=""
+        [ "$GUARD" = "failure" ] && failed="guard"
+        [ -z "$failed" ] && [ "$RED" = "failure" ] && failed="red"
+        [ -z "$failed" ] && [ "$ACCEPTANCE" = "failure" ] && failed="acceptance"
+        [ -z "$failed" ] && [ "$QUALITY" = "failure" ] && failed="quality"
+        [ -z "$failed" ] && [ "$MUTATE" = "failure" ] && failed="mutate"
+        [ -z "$failed" ] && [ "$HOLDOUT" = "failure" ] && failed="holdout"
+        [ -z "$failed" ] && [ -n "$TRACE" ] && [ "$TRACE" != "0" ] && failed="trace"
+        echo "failed=$failed" >> "$GITHUB_OUTPUT"
+        : > "$RUNNER_TEMP/touchstone-failure.txt"
+        if [ -n "$failed" ] && [ -f "$RUNNER_TEMP/touchstone-$failed.txt" ]; then
+          tail -n 60 "$RUNNER_TEMP/touchstone-$failed.txt" | tail -c 6000 > "$RUNNER_TEMP/touchstone-failure.txt"
+        fi
+        exit 0
     - name: Publish the trace
-      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      if: always() && inputs.comment == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v7
       env:
         TRACE_FILE: ${{ runner.temp }}/touchstone-trace.txt
         DRIVERS_FILE: ${{ runner.temp }}/touchstone-drivers.txt
+        FAILURE_FILE: ${{ runner.temp }}/touchstone-failure.txt
+        FAILED_STAGE: ${{ steps.report.outputs.failed }}
       with:
         script: |
           const fs = require('fs')
-          const trace = fs.readFileSync(process.env.TRACE_FILE, 'utf8').trim()
-          const drivers = fs.readFileSync(process.env.DRIVERS_FILE, 'utf8').trim()
+          const read = (path) => { try { return fs.readFileSync(path, 'utf8').trim() } catch { return '' } }
+          const trace = read(process.env.TRACE_FILE) || 'No trace was produced.'
+          const drivers = read(process.env.DRIVERS_FILE)
+          const failure = read(process.env.FAILURE_FILE)
+          const stage = process.env.FAILED_STAGE
+          const stages = {
+            guard: 'An approved sentence was removed or reworded, or a test was switched off.',
+            trace: 'A sentence, its Cucumber scenario and its step definition do not line up.',
+            red: 'A new or changed scenario did not fail first, or failed for the wrong reason, or did not pass with this code.',
+            acceptance: 'The acceptance tests failed.',
+            quality: 'A quality gate failed.',
+            mutate: 'A value in a scenario is not checked: changing it does not make the scenario fail.',
+            holdout: 'The held-back scenarios failed.',
+          }
+          const status = stage
+            ? [`### Touchstone: failed at **${stage}**`, '', stages[stage] || '', '']
+            : ['### Touchstone: all checks passed', '']
+          const failureSection = failure
+            ? ['<details open><summary>Output of the failing stage (last lines)</summary>', '', '```text', failure, '```', '', '</details>', '']
+            : []
           const marker = '<!-- touchstone-trace -->'
           const driverSection = drivers
             ? [
@@ -183,6 +236,8 @@ runs:
             : []
           const body = [
             marker,
+            ...status,
+            ...failureSection,
             '### Touchstone trace',
             '',
             'Each approved sentence, the Cucumber scenario that runs it, and the step definition.',
@@ -209,31 +264,9 @@ runs:
             })
           }
     - name: Trace result
+      if: always()
       shell: bash
       run: |
         if [ "${{ steps.trace.outputs.code }}" != "0" ]; then
           exit 1
         fi
-    - name: Report which stage failed
-      id: report
-      if: always()
-      shell: bash
-      env:
-        GUARD: ${{ steps.guard.outcome }}
-        RED: ${{ steps.red.outcome }}
-        ACCEPTANCE: ${{ steps.acceptance.outcome }}
-        QUALITY: ${{ steps.quality.outcome }}
-        MUTATE: ${{ steps.mutate.outcome }}
-        HOLDOUT: ${{ steps.holdout.outcome }}
-        TRACE: ${{ steps.trace.outputs.code }}
-      run: |
-        failed=""
-        [ "$GUARD" = "failure" ] && failed="guard"
-        [ -z "$failed" ] && [ "$RED" = "failure" ] && failed="red"
-        [ -z "$failed" ] && [ "$ACCEPTANCE" = "failure" ] && failed="acceptance"
-        [ -z "$failed" ] && [ "$QUALITY" = "failure" ] && failed="quality"
-        [ -z "$failed" ] && [ "$MUTATE" = "failure" ] && failed="mutate"
-        [ -z "$failed" ] && [ "$HOLDOUT" = "failure" ] && failed="holdout"
-        [ -z "$failed" ] && [ -n "$TRACE" ] && [ "$TRACE" != "0" ] && failed="trace"
-        echo "failed=$failed" >> "$GITHUB_OUTPUT"
-        exit 0

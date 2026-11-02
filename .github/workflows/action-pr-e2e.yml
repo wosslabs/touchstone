@@ -1,0 +1,62 @@
+# Runs the real Action on a real pull request event. Open a pull request from a
+# branch named e2e/<attack name> (see `node attacks/run.js --list`) that adds a
+# file under e2e/. The job builds that attack as a scratch repository, runs the
+# Action on it with comments switched on, and checks the verdict. The Action
+# posts its comment on the pull request itself.
+name: Action on a pull request
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "e2e/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  attack:
+    if: startsWith(github.head_ref, 'e2e/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: touchstone-action
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Choose the attack from the branch name
+        id: pick
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          name="${HEAD_REF#e2e/}"
+          read -r expect stage < <(node touchstone-action/attacks/run.js --list | python3 -c 'import sys,json; a=[x for x in json.load(sys.stdin) if x["name"]==sys.argv[1]]; print(a[0]["expect"], a[0]["stage"] or "-") if a else sys.exit(1)' "$name")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "expect=$expect" >> "$GITHUB_OUTPUT"
+          echo "stage=${stage/#-/}" >> "$GITHUB_OUTPUT"
+      - name: Build the attack as a repository
+        id: build
+        run: |
+          base="$(node touchstone-action/attacks/run.js --materialize "$GITHUB_WORKSPACE" --only "${{ steps.pick.outputs.name }}")"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+      - run: npm ci --ignore-scripts
+      - name: Run the Action
+        id: touchstone
+        continue-on-error: true
+        uses: ./touchstone-action
+        with:
+          base: ${{ steps.build.outputs.base }}
+      - name: The Action gave the verdict it should
+        run: |
+          expected="${{ steps.pick.outputs.expect }}"
+          outcome="${{ steps.touchstone.outcome }}"
+          stage="${{ steps.pick.outputs.stage }}"
+          failed="${{ steps.touchstone.outputs.failed_stage }}"
+          echo "expected $expected (stage ${stage:-any}); the Action's outcome was $outcome (stage ${failed:-none})"
+          [ "$expected" = "green" ] && [ "$outcome" != "success" ] && { echo "rejected a good change" >&2; exit 1; }
+          [ "$expected" = "red" ] && [ "$outcome" = "success" ] && { echo "accepted a bad change" >&2; exit 1; }
+          [ -n "$stage" ] && [ "$failed" != "$stage" ] && { echo "the wrong stage stopped it" >&2; exit 1; }
+          [ "$expected" = "green" ] && [ -n "$failed" ] && { echo "a stage failed on the good change: $failed" >&2; exit 1; }
+          exit 0
