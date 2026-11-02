@@ -1,11 +1,17 @@
 ---
 name: touchstone-refine
-description: Use after a feature is built and green, when the repository's touchstone.json defines the phases clean, architect and harden, before the pull request is opened.
+description: Use after a feature is built and green, before the pull request is opened, to clean the code, fix its dependency direction, and strengthen its tests in three separate passes.
 ---
 
 # Refine a green change in three fenced passes
 
-The sentence passes and the code works. Before the pull request, make three passes over what you changed: clean, architect, harden. Each pass has a fence (what it may touch) and gates (commands that must pass). The fence and the gates come from `touchstone.json`, which a person owns. Your own opinion that a pass is done counts for nothing. The command output is the result.
+The sentence passes and the code works. Before the pull request, make three passes over what you changed: clean, architect, harden. Each pass has a fence (what it may touch) and gates (commands that must pass). Your own opinion that a pass is done counts for nothing. The command output is the result.
+
+## Where the fence and the gates come from
+
+- **If `touchstone.json` defines the phases `clean`, `architect` and `harden`,** a person has set the fence and the gates. Use `npx @wosslabs/touchstone gates phase <pass> --base <sha>` after each pass. It refuses a pass that touched a file it may not touch, then runs that pass's gates.
+- **If it does not,** still make the three passes. The fence is then your own discipline: change only production code and tests of this feature, and never touch `stories/`, a `.feature` file, the workflows, `touchstone.json`, `CODEOWNERS`, or the project's quality scripts. For gates, use what the project already has: its test command, the acceptance run, and any scripts for duplication, architecture or mutation that you find in `package.json`, the build file or the README. Say in the pull request that no phases were configured. Do not stop.
+- **If the project has no way to measure a pass,** read the code with the pass in mind and say what you could and could not check.
 
 The pull request check is still the verdict. These passes make it more likely to be green. They do not replace it.
 
@@ -14,14 +20,9 @@ The pull request check is still the verdict. These passes make it more likely to
 - **Behavior stays exactly the same.** Do not add features. Do not change what the system does.
 - **The sentences are not yours.** Never touch `stories/`, a `.feature` file, the workflows, `touchstone.json`, `CODEOWNERS`, or the project's quality scripts. The fence refuses it. If a gate cannot pass without crossing the fence, stop and say so.
 - **Stay on this feature.** Work on the files this feature changed, and on code that duplicates them. Do not tidy the rest of the repository.
-- **Check the fence and gates with the command, not by reading.**
+- **Check with commands, not by reading.** `npx @wosslabs/touchstone gates list` shows the gates a person configured.
 
-```bash
-npx @wosslabs/touchstone gates list                       # what gates exist
-npx @wosslabs/touchstone gates phase <pass> --base <sha>  # fence, then the pass's gates
-```
-
-Before each pass, note the commit you are on (`git rev-parse HEAD`). That is `<sha>`. After the pass, run the phase command, paste its output, and commit the pass on its own with a message that names it. Three small commits are easier to review than one large one.
+Before each pass, note the commit you are on (`git rev-parse HEAD`). That is `<sha>`. After the pass, run its check, paste the output, and commit the pass on its own with a message that names it. Three small commits are easier to review than one large one.
 
 ## Pass 1. Clean
 
@@ -31,9 +32,7 @@ Make the code easier to read without changing what it does.
 - Give unclear names their meaning. Split a function that does two jobs. Delete code nothing calls.
 - Keep the existing tests green throughout. Do not delete or weaken a test.
 
-```bash
-npx @wosslabs/touchstone gates phase clean --base <sha>
-```
+With phases configured: `npx @wosslabs/touchstone gates phase clean --base <sha>`. Without: run the project's own checks for this pass.
 
 ## Pass 2. Architect
 
@@ -44,9 +43,7 @@ Make the dependencies point the right way. Policy, the rules of the business, mu
 - If the project has an architecture gate, run it and fix what it reports. If it has none and the rule matters, add a small automated check for it among the tests.
 - Behavior stays the same. If the old code wrote a log line, sent a message, or saved a record, the new code still does, through the edge. Do not "fix" a dependency by deleting what the code did.
 
-```bash
-npx @wosslabs/touchstone gates phase architect --base <sha>
-```
+With phases configured: `npx @wosslabs/touchstone gates phase architect --base <sha>`. Without: run the project's own checks for this pass.
 
 ## Pass 3. Harden
 
@@ -56,9 +53,7 @@ Make the tests strong enough that a wrong change fails them. This pass touches t
 - If there is no mutation gate, read each function you changed and ask what small wrong change would still pass. Write tests that catch those.
 - A test that cannot fail is worth nothing. Do not weaken an assertion. Do not delete a test.
 
-```bash
-npx @wosslabs/touchstone gates phase harden --base <sha>
-```
+With phases configured: `npx @wosslabs/touchstone gates phase harden --base <sha>`. Without: run the project's own checks for this pass.
 
 ## Finish
 

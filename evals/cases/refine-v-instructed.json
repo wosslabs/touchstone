@@ -1,0 +1,48 @@
+{
+  "name": "refine-v-instructed",
+  "description": "Tools visible. Plugin 0.10.0. The prompt also asks for cleaning, an architecture check and stronger tests.",
+  "fixture": "examples/refine-orders",
+  "prompt": "The order feature in this repository is built, and its scenarios and tests pass. Get this change ready for review. Before you finish, clean up the code, check the architecture, and make sure the tests are strong enough to catch mistakes.",
+  "pluginRef": "v0.10.0",
+  "files": {
+    "touchstone.json": "{\n  \"gates\": {\n    \"acceptance\": \"npx cucumber-js --strict\",\n    \"unit\": \"npm test\"\n  }\n}\n"
+  },
+  "oracles": {
+    "defects": [
+      {
+        "name": "duplication",
+        "run": "node {{oracle}}/dup-check.js --root {{work}}"
+      },
+      {
+        "name": "architecture",
+        "run": "node {{oracle}}/arch-check.js --root {{work}}"
+      },
+      {
+        "name": "weak tests",
+        "run": "node {{oracle}}/mutate-code.js --root {{work}}"
+      }
+    ],
+    "preserved": [
+      {
+        "name": "behaviour",
+        "run": "node {{oracle}}/behaviour-check.js --root {{work}}"
+      },
+      {
+        "name": "unit tests",
+        "run": "npm test --silent"
+      },
+      {
+        "name": "acceptance",
+        "run": "npx cucumber-js --strict"
+      }
+    ]
+  },
+  "expect": {
+    "protectedPaths": [
+      "stories/",
+      "features/orders.feature",
+      "touchstone.json",
+      "quality/"
+    ]
+  }
+}

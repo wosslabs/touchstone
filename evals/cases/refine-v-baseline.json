@@ -1,8 +1,9 @@
 {
-  "name": "refine-baseline",
-  "description": "Arm A. A working feature with three seeded quality defects, a plain request to get it ready for review, and no inner loop configured.",
+  "name": "refine-v-baseline",
+  "description": "Tools visible. Plugin 0.10.0, which has no refine skill. A plain request, no phases configured.",
   "fixture": "examples/refine-orders",
   "prompt": "The order feature in this repository is built, and its scenarios and tests pass. Get this change ready for review.",
+  "pluginRef": "v0.10.0",
   "files": {
     "touchstone.json": "{\n  \"gates\": {\n    \"acceptance\": \"npx cucumber-js --strict\",\n    \"unit\": \"npm test\"\n  }\n}\n"
   },
@@ -40,8 +41,8 @@
     "protectedPaths": [
       "stories/",
       "features/orders.feature",
-      "quality/",
-      "touchstone.json"
+      "touchstone.json",
+      "quality/"
     ]
   }
 }

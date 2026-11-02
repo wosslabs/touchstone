@@ -61,10 +61,33 @@ function prepare(testCase) {
   return work;
 }
 
+// The plugin an agent runs with. A case can name a git tag or commit
+// (`pluginRef`) to run against an older plugin, for example one without a skill
+// being tested, so that the baseline really lacks it.
+const pluginDirs = new Map();
+function pluginDirFor(testCase) {
+  if (!testCase.pluginRef) {
+    return packageRoot;
+  }
+  if (!pluginDirs.has(testCase.pluginRef)) {
+    const dir = mkdtempSync(join(tmpdir(), `touchstone-plugin-${testCase.pluginRef.replace(/[^\w.-]/g, "_")}-`));
+    const archive = spawnSync("git", ["archive", testCase.pluginRef], { cwd: packageRoot, maxBuffer: 256 * 1024 * 1024 });
+    if (archive.status !== 0) {
+      throw new Error(`cannot read plugin ${testCase.pluginRef}: ${archive.stderr}`);
+    }
+    const extract = spawnSync("tar", ["-x", "-C", dir], { input: archive.stdout });
+    if (extract.status !== 0) {
+      throw new Error(`cannot unpack plugin ${testCase.pluginRef}`);
+    }
+    pluginDirs.set(testCase.pluginRef, dir);
+  }
+  return pluginDirs.get(testCase.pluginRef);
+}
+
 function command(testCase, budget, mode) {
   return [
     "-p", fill(testCase.prompt),
-    "--plugin-dir", packageRoot,
+    "--plugin-dir", pluginDirFor(testCase),
     "--permission-mode", mode,
     "--output-format", "stream-json",
     "--verbose",
@@ -160,6 +183,9 @@ function main() {
       console.log(`  - ${reason}`);
     }
     failed += passed === runs ? 0 : 1;
+  }
+  for (const dir of pluginDirs.values()) {
+    rmSync(dir, { recursive: true, force: true });
   }
   return failed ? 1 : 0;
 }
