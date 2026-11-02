@@ -19,8 +19,4 @@ public class TaskList {
     public List<String> titles() {
         return List.copyOf(titles);
     }
-
-    public void clear() {
-        titles.clear();
-    }
 }

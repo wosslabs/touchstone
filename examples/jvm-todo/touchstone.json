@@ -1,0 +1,52 @@
+{
+  "gates": {
+    "acceptance": "./mvnw -B verify",
+    "red": {
+      "command": "./mvnw -B -q verify -DskipUnitTests=true -Dcucumber.filter.name=\"$TOUCHSTONE_SCENARIO\" -Dcucumber.plugin=\"message:$TOUCHSTONE_MESSAGES\""
+    },
+    "unit": "./mvnw -B -q test",
+    "architecture": "./mvnw -B -q test -Dtest=ArchitectureTest",
+    "mutation-code": "./mvnw -B org.pitest:pitest-maven:mutationCoverage"
+  },
+  "quality": [
+    "unit",
+    "architecture",
+    "mutation-code"
+  ],
+  "mutation": {
+    "mode": "warn",
+    "maxMutants": 30
+  },
+  "phases": {
+    "clean": {
+      "allow": [
+        "src/main/**",
+        "src/test/**"
+      ],
+      "gates": [
+        "unit",
+        "acceptance"
+      ]
+    },
+    "architect": {
+      "allow": [
+        "src/main/**",
+        "src/test/**"
+      ],
+      "gates": [
+        "unit",
+        "architecture",
+        "acceptance"
+      ]
+    },
+    "harden": {
+      "allow": [
+        "src/test/**"
+      ],
+      "gates": [
+        "unit",
+        "mutation-code"
+      ]
+    }
+  }
+}

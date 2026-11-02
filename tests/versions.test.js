@@ -18,3 +18,10 @@ test("the starter touchstone.json is valid", async () => {
   const { validate } = await import("../ci/config.js");
   assert.deepEqual(validate(json("templates/touchstone.json")), []);
 });
+
+test("the JVM example's touchstone.json is valid and its gates call tools, not npm scripts", async () => {
+  const { lint, validate } = await import("../ci/config.js");
+  const config = json("examples/jvm-todo/touchstone.json");
+  assert.deepEqual(validate(config), []);
+  assert.deepEqual(lint(config), []);
+});
