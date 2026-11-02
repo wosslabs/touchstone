@@ -11,7 +11,7 @@ import { cpSync, existsSync, mkdirSync, symlinkSync, mkdtempSync, readdirSync, r
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { changes, evaluate, snapshot } from "./checks.js";
+import { changes, evaluate, finalText, snapshot } from "./checks.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -119,6 +119,7 @@ function main() {
       continue;
     }
     let passed = 0;
+    let limited = false;
     const reasons = [];
     const fixedRuns = new Map((testCase.oracles?.defects ?? []).map((defect) => [defect.name, 0]));
     const fixedPerRun = [];
@@ -136,6 +137,13 @@ function main() {
       const before = snapshot(work);
       const result = spawnSync("claude", command(testCase, budget, mode), { cwd: work, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
       const transcript = result.stdout || "";
+      // A usage or rate limit means the agent never ran. That is not a result.
+      if (/hit your .{0,40}limit|usage limit|rate.?limit|overloaded/i.test(finalText(transcript))) {
+        console.log(`  run ${run}: NOT RUN, ${finalText(transcript).trim().slice(0, 120)}`);
+        limited = true;
+        rmSync(work, { recursive: true, force: true });
+        break;
+      }
       const failures = result.error
         ? [`could not run claude: ${result.error.message}`]
         : evaluate(testCase.expect, changes(before, snapshot(work)), transcript);
@@ -169,6 +177,11 @@ function main() {
         passed += 1;
         rmSync(work, { recursive: true, force: true });
       }
+    }
+    if (limited) {
+      console.log(`INCOMPLETE ${testCase.name}: stopped at a usage limit after ${fixedPerRun.length} real runs. Those runs count; the rest were not run.`);
+      failed += 1;
+      continue;
     }
     console.log(`${passed === runs ? "PASS" : "FAIL"} ${testCase.name}: ${passed}/${runs} runs (${mode})`);
     if (testCase.oracles) {
