@@ -1,0 +1,80 @@
+# Runs the real composite Action (`uses:`) on scratch repositories built from the
+# attack suite. Each attack must turn the Action red; the one honest change must
+# stay green. Everything the Action does is exercised except the pull request
+# comment, because there is no pull request.
+name: Action end to end
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - action.yml
+      - "ci/**"
+      - "attacks/**"
+      - "examples/typescript-todo/**"
+      - package.json
+      - package-lock.json
+      - .github/workflows/action-e2e.yml
+  pull_request:
+    paths:
+      - action.yml
+      - "ci/**"
+      - "attacks/**"
+      - .github/workflows/action-e2e.yml
+  workflow_dispatch:
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      attacks: ${{ steps.list.outputs.attacks }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - id: list
+        run: echo "attacks=$(node attacks/run.js --list)" >> "$GITHUB_OUTPUT"
+
+  attack:
+    needs: list
+    runs-on: ubuntu-latest
+    name: ${{ matrix.attack.name }} (expect ${{ matrix.attack.expect }})
+    strategy:
+      fail-fast: false
+      matrix:
+        attack: ${{ fromJSON(needs.list.outputs.attacks) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: touchstone-action
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build the attack as a repository
+        id: build
+        run: |
+          base="$(node touchstone-action/attacks/run.js --materialize "$GITHUB_WORKSPACE" --only "${{ matrix.attack.name }}")"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          git log --oneline
+      - run: npm ci --ignore-scripts
+      - name: Run the Action
+        id: touchstone
+        continue-on-error: true
+        uses: ./touchstone-action
+        with:
+          base: ${{ steps.build.outputs.base }}
+          comment: "false"
+      - name: The Action gave the verdict it should
+        run: |
+          expected="${{ matrix.attack.expect }}"
+          outcome="${{ steps.touchstone.outcome }}"
+          echo "expected $expected, the Action's outcome was $outcome"
+          if [ "$expected" = "green" ] && [ "$outcome" != "success" ]; then
+            echo "the Action rejected a change it should have accepted" >&2
+            exit 1
+          fi
+          if [ "$expected" = "red" ] && [ "$outcome" = "success" ]; then
+            echo "the Action accepted a change it should have rejected" >&2
+            exit 1
+          fi

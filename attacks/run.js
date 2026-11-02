@@ -172,25 +172,65 @@ function pipeline(dir) {
   return failed;
 }
 
-function prepare() {
-  const dir = mkdtempSync(join(tmpdir(), "touchstone-attack-"));
+// Writes the base project into `dir`, makes the base commit, and returns a git
+// helper for that directory. `ignore` lists extra paths git should not track.
+function seed(dir, ignore = []) {
   cpSync(fixture, dir, { recursive: true, filter: (source) => !source.includes("node_modules") });
-  symlinkSync(modules, join(dir, "node_modules"));
-  writeFileSync(join(dir, ".gitignore"), "node_modules\n");
-  writeFileSync(join(dir, "touchstone.json"), `${JSON.stringify({ gates: { acceptance: ACCEPTANCE }, mutation: { mode: "fail" } }, null, 2)}\n`);
-  const git = (...args) => execFileSync("git", ["-c", "user.email=attacks@example.com", "-c", "user.name=Attacks", ...args], { cwd: dir, stdio: "pipe" });
+  writeFileSync(join(dir, ".gitignore"), `${["node_modules", ...ignore].join("\n")}\n`);
+  const config = {
+    gates: { acceptance: ACCEPTANCE, red: { command: RED, setup: "npm ci --ignore-scripts" } },
+    mutation: { mode: "fail" },
+  };
+  writeFileSync(join(dir, "touchstone.json"), `${JSON.stringify(config, null, 2)}\n`);
+  const git = (...args) => execFileSync("git", ["-c", "user.email=attacks@example.com", "-c", "user.name=Attacks", ...args], { cwd: dir, stdio: "pipe", encoding: "utf8" });
   git("init", "-q", "-b", "main");
   git("add", "-A");
   git("commit", "-q", "-m", "base");
+  return git;
+}
+
+function prepare() {
+  const dir = mkdtempSync(join(tmpdir(), "touchstone-attack-"));
+  const git = seed(dir);
+  symlinkSync(modules, join(dir, "node_modules"));
   return [dir, git];
 }
 
+function option(name) {
+  const index = process.argv.indexOf(name);
+  return index === -1 || index + 1 >= process.argv.length ? "" : process.argv[index + 1];
+}
+
+// Builds one attack as a scratch repository in `dir` (base commit, then the
+// attack as a second commit) so a workflow can run the real Action on it.
+function materialize(dir, name) {
+  const attack = ATTACKS.find((candidate) => candidate.name === name);
+  if (!attack) {
+    console.error(`attacks: no attack named "${name}"`);
+    return 1;
+  }
+  const git = seed(dir, ["touchstone-action"]);
+  const base = git("rev-parse", "HEAD").trim();
+  attack.apply(dir);
+  git("add", "-A");
+  git("commit", "-q", "-m", attack.name);
+  console.log(base);
+  return 0;
+}
+
 function main() {
+  if (process.argv.includes("--list")) {
+    console.log(JSON.stringify(ATTACKS.map(({ name, expect }) => ({ name, expect }))));
+    return 0;
+  }
+  if (process.argv.includes("--materialize")) {
+    return materialize(resolve(option("--materialize")), option("--only"));
+  }
   if (!existsSync(modules)) {
     console.error("attacks: run `npm ci --ignore-scripts` in examples/typescript-todo first");
     return 1;
   }
-  const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : "";
+  const only = option("--only");
   const keep = process.argv.includes("--keep");
   let wrong = 0;
   for (const attack of ATTACKS.filter((candidate) => !only || candidate.name === only)) {
