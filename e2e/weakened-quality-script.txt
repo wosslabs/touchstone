@@ -1,0 +1,2 @@
+Pull request test for "weakened-quality-script": checks how protected-file changes are reported.
+Never merged.
