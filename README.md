@@ -4,6 +4,8 @@
 [![npm](https://img.shields.io/npm/v/@wosslabs/touchstone)](https://www.npmjs.com/package/@wosslabs/touchstone)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+**Maintainer:** [Tenzing Wangdi](https://www.linkedin.com/in/tenzing/) · GitHub [`wosslabs`](https://github.com/wosslabs)
+
 Touchstone is an open-source workflow for changing software with a coding agent. A person approves a sentence that describes a behavior. The agent shows that sentence failing against the system as it exists today. The agent writes production code only after a person agrees that the failure is the missing behavior.
 
 ```gherkin
@@ -19,6 +21,32 @@ That sentence is the requirement. Someone who uses or supports the product can a
 Touchstone works with Claude Code, Cursor, and any agent that reads a `SKILL.md` file, including GitHub Copilot and Codex. It is not related to other software that uses the same name.
 
 ![Agents produce unlimited output. Touchstone's inner loop shapes it, its outer loop checks it without any AI, and a person decides only on one small pull request.](docs/images/outer-inner-loop.png)
+
+## How it works
+
+One approved behavior sentence → prove it fails today → build the smallest pass →
+CI (no AI) verifies the evidence → you merge one small PR.
+
+```mermaid
+flowchart TB
+  P["Person"]
+  A["Coding agent<br/>Claude · Cursor · Copilot · Codex"]
+  CI["Outer loop — GitHub Action<br/>deterministic · no AI"]
+
+  P -->|"1. Approve Given/When/Then"| STORIES["stories/ — person-owned"]
+  A -->|"cannot edit"| STORIES
+  A -->|"2. Show red for the missing behavior"| P
+  P -->|"3. Agree the failure is the gap"| A
+  A -->|"4. Inner loop: build · clean · architect · harden"| PR["Small pull request"]
+  CI -->|"5. Trace · red-before-green · mutate · gates"| PR
+  P -->|"6. Merge if CI is green"| MAIN["main"]
+```
+
+| Loop | Who | Trust |
+|------|-----|-------|
+| **Inner** | Agent | Advisory — cheap, fast, not trusted alone |
+| **Outer** | CI Action | Deterministic verdict — no model in the path |
+| **Person** | You | Sentence intent, failure meaning, merge |
 
 ## The idea: bite-sized agentic delivery
 
@@ -99,7 +127,9 @@ All of it, with the numbers and the limits, is in [Project status](docs/project-
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/wosslabs/touchstone](https://github.com/wosslabs/touchstone).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ```bash
 npm ci --ignore-scripts
@@ -113,6 +143,9 @@ npm run attacks
 
 The tests cover the hook's allow and deny decisions, the sentence guard, the trace, the red check, init and the eval checks. They do not show that an agent will follow the skill text. That is what the evals are for.
 
+## Author
+
+Built and maintained by [Tenzing Wangdi](https://www.linkedin.com/in/tenzing/) ([`wosslabs`](https://github.com/wosslabs)).
 
 ## License
 
