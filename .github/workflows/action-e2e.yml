@@ -29,7 +29,7 @@ jobs:
     outputs:
       attacks: ${{ steps.list.outputs.attacks }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -45,7 +45,7 @@ jobs:
       matrix:
         attack: ${{ fromJSON(needs.list.outputs.attacks) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: touchstone-action
       - uses: actions/setup-node@v4
